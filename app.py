@@ -8,11 +8,14 @@ from datetime import datetime, timedelta
 import json
 
 st.set_page_config(
-    page_title="Marango Equity Fund - Dashboard",
+    page_title="Equity Fund Dashboard",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Block search engines from indexing
+st.markdown('<meta name="robots" content="noindex, nofollow">', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════
 # CSS
