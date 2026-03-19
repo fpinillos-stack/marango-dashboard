@@ -131,22 +131,57 @@ SECTOR_COLORS = {"Technology":"#3b82f6","Financials":"#f59e0b","Industrials":"#1
 @st.cache_data(ttl=120)
 def fetch_holdings_prices():
     tickers = list(PORTFOLIO.keys())
+    prices = {}
     try:
-        data = yf.download(tickers, period="1d", group_by="ticker", progress=False)
-        prices = {}
+        data = yf.download(tickers, period="5d", group_by="ticker", progress=False)
+        if data.empty:
+            return {t: 0 for t in tickers}
         for t in tickers:
             try:
-                if len(tickers) > 1 and t in data.columns.get_level_values(0):
-                    close = data[t]["Close"].iloc[-1]
-                    prices[t] = float(close) if pd.notna(close) else 0
-                elif len(tickers) == 1:
-                    close = data["Close"].iloc[-1]
-                    prices[t] = float(close) if pd.notna(close) else 0
+                # Handle both MultiIndex and flat column formats
+                if isinstance(data.columns, pd.MultiIndex):
+                    if t in data.columns.get_level_values(0):
+                        col = data[t]["Close"].dropna()
+                        if len(col) > 0:
+                            prices[t] = float(col.iloc[-1])
+                            continue
+                    # Try with Price level
+                    if "Price" in data.columns.get_level_values(0):
+                        col = data["Price"]["Close"].dropna() if "Close" in data["Price"].columns else None
+                        if col is not None and len(col) > 0:
+                            prices[t] = float(col.iloc[-1])
+                            continue
+                else:
+                    if "Close" in data.columns:
+                        col = data["Close"].dropna()
+                        if len(col) > 0:
+                            prices[t] = float(col.iloc[-1])
+                            continue
+            except Exception:
+                pass
+            # Fallback: fetch individually
+            try:
+                tk = yf.Ticker(t)
+                hist = tk.history(period="5d")
+                if not hist.empty:
+                    prices[t] = float(hist["Close"].iloc[-1])
+                    continue
+            except Exception:
+                pass
+            prices[t] = 0
+    except Exception:
+        # Total fallback: fetch each individually
+        for t in tickers:
+            try:
+                tk = yf.Ticker(t)
+                hist = tk.history(period="5d")
+                if not hist.empty:
+                    prices[t] = float(hist["Close"].iloc[-1])
+                else:
+                    prices[t] = 0
             except Exception:
                 prices[t] = 0
-        return prices
-    except Exception:
-        return {t: 0 for t in tickers}
+    return prices
 
 @st.cache_data(ttl=120)
 def fetch_market_data():
@@ -200,9 +235,22 @@ def fetch_chart_data(ticker, period="3mo"):
 def fetch_news(ticker):
     try:
         t = yf.Ticker(ticker)
-        news = t.news
-        if news:
-            return news[:8]
+        # Try new yfinance API format first
+        try:
+            news_data = t.get_news()
+            if news_data:
+                return news_data[:8]
+        except Exception:
+            pass
+        # Fallback to old API
+        try:
+            news_data = t.news
+            if isinstance(news_data, list) and len(news_data) > 0:
+                return news_data[:8]
+            elif isinstance(news_data, dict) and "items" in news_data:
+                return news_data["items"][:8]
+        except Exception:
+            pass
     except Exception:
         pass
     return []
@@ -465,16 +513,24 @@ with tab_news:
     news_items = fetch_news(news_ticker)
     if news_items:
         for item in news_items:
-            title = item.get("title", "Sin titulo")
-            link = item.get("link", "#")
-            publisher = item.get("publisher", "")
-            pub_time = item.get("providerPublishTime", 0)
-            time_str = datetime.fromtimestamp(pub_time).strftime("%d %b %H:%M") if pub_time else ""
-            st.markdown(f"**[{title}]({link})**")
-            st.caption(f"{publisher} — {time_str}")
-            st.markdown("---")
+            try:
+                title = item.get("title", item.get("headline", "Sin titulo"))
+                link = item.get("link", item.get("url", "#"))
+                publisher = item.get("publisher", item.get("source", ""))
+                pub_time = item.get("providerPublishTime", item.get("publish_time", 0))
+                if isinstance(pub_time, (int, float)) and pub_time > 0:
+                    time_str = datetime.fromtimestamp(pub_time).strftime("%d %b %H:%M")
+                elif isinstance(pub_time, str):
+                    time_str = pub_time[:16]
+                else:
+                    time_str = ""
+                st.markdown(f"**[{title}]({link})**")
+                st.caption(f"{publisher} — {time_str}")
+                st.markdown("---")
+            except Exception:
+                continue
     else:
-        st.info("No hay noticias recientes para este ticker")
+        st.info(f"No hay noticias recientes para {news_ticker}. Prueba con AAPL, MSFT o NVDA.")
 
 # Footer
 st.markdown("---")
