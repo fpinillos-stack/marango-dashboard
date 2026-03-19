@@ -231,29 +231,6 @@ def fetch_chart_data(ticker, period="3mo"):
     except Exception:
         return None
 
-@st.cache_data(ttl=600)
-def fetch_news(ticker):
-    try:
-        t = yf.Ticker(ticker)
-        # Try new yfinance API format first
-        try:
-            news_data = t.get_news()
-            if news_data:
-                return news_data[:8]
-        except Exception:
-            pass
-        # Fallback to old API
-        try:
-            news_data = t.news
-            if isinstance(news_data, list) and len(news_data) > 0:
-                return news_data[:8]
-            elif isinstance(news_data, dict) and "items" in news_data:
-                return news_data["items"][:8]
-        except Exception:
-            pass
-    except Exception:
-        pass
-    return []
 
 # ═══════════════════════════════════════════════════════
 # SIGNAL COMPUTATION
@@ -330,8 +307,8 @@ c5.metric("Posiciones", str(len(df)))
 c6.metric("BUY Signals", str(buy_count))
 
 # Tabs
-tab_markets, tab_matrix, tab_quality, tab_regime, tab_technical, tab_news = st.tabs(
-    ["📈 Markets", "🎯 Decision Matrix", "💎 Quality Analysis", "🌐 Market Regime", "📊 Technical Analysis", "📰 News"]
+tab_markets, tab_matrix, tab_quality, tab_regime, tab_technical = st.tabs(
+    ["📈 Markets", "🎯 Decision Matrix", "💎 Quality Analysis", "🌐 Market Regime", "📊 Technical Analysis"]
 )
 
 # ══ MARKETS TAB ══
@@ -507,31 +484,8 @@ with tab_technical:
     else:
         st.warning("No se pudieron cargar datos para este ticker")
 
-# ══ NEWS TAB ══
-with tab_news:
-    news_ticker = st.selectbox("Ticker para noticias", list(PORTFOLIO.keys()), key="news_sel")
-    news_items = fetch_news(news_ticker)
-    if news_items:
-        for item in news_items:
-            try:
-                title = item.get("title", item.get("headline", "Sin titulo"))
-                link = item.get("link", item.get("url", "#"))
-                publisher = item.get("publisher", item.get("source", ""))
-                pub_time = item.get("providerPublishTime", item.get("publish_time", 0))
-                if isinstance(pub_time, (int, float)) and pub_time > 0:
-                    time_str = datetime.fromtimestamp(pub_time).strftime("%d %b %H:%M")
-                elif isinstance(pub_time, str):
-                    time_str = pub_time[:16]
-                else:
-                    time_str = ""
-                st.markdown(f"**[{title}]({link})**")
-                st.caption(f"{publisher} — {time_str}")
-                st.markdown("---")
-            except Exception:
-                continue
-    else:
-        st.info(f"No hay noticias recientes para {news_ticker}. Prueba con AAPL, MSFT o NVDA.")
 
+# Footer
 # Footer
 st.markdown("---")
 st.caption(f"MARANGO EQUITY FUND, FI — ES0166932006 — Quality x Regime Dashboard — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
