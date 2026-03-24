@@ -486,50 +486,6 @@ def load_score_history():
         except:
             return pd.DataFrame(columns=['Date', 'Company', 'Quality_Score'])
 
-@st.cache_data
-def load_dcf_data():
-    """Load DCF Simplified data"""
-    try:
-        df = pd.read_excel(
-            'Bloque_1_Financial_Scoring_Generic_V4.xlsx',
-            sheet_name='DCF Simplified'
-        )
-        return df
-    except:
-        df = load_bloque1()
-
-        df['Current_Price'] = np.random.uniform(50, 500, len(df))
-        df['Fair_Value'] = df['Current_Price'] * np.random.uniform(0.8, 1.4, len(df))
-        df['Upside_Percent'] = ((df['Fair_Value'] - df['Current_Price']) / df['Current_Price'] * 100)
-        df['Market_Cap'] = df['Current_Price'] * np.random.uniform(10, 1000, len(df))
-
-        return df
-
-@st.cache_data
-def load_rebalancing_data():
-    """Load Rebalancing data"""
-    try:
-        df = pd.read_excel(
-            'Bloque_1_Financial_Scoring_Generic_V4.xlsx',
-            sheet_name='Rebalancing'
-        )
-        return df
-    except:
-        df = load_bloque1()
-
-        df['Current_Weight'] = np.random.uniform(1, 8, len(df))
-        df['Target_Weight'] = df['Current_Weight'] * np.random.uniform(0.7, 1.3, len(df))
-        df['Amount'] = (df['Target_Weight'] - df['Current_Weight']) * 18_300_000 / 100
-        df['Action'] = df['Amount'].apply(
-            lambda x: 'BUY' if x > 50000 else ('SELL' if x < -50000 else 'HOLD')
-        )
-        df['Reason'] = df.apply(
-            lambda row: f"Quality {row['Quality_Score']:.0f}" if row['Action'] == 'BUY'
-            else "Take profits" if row['Action'] == 'SELL'
-            else "Maintain", axis=1
-        )
-
-        return df
 
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
@@ -1119,100 +1075,6 @@ def display_scores_tab():
     )
     st.plotly_chart(fig, use_container_width=True)
 
-def display_dcf_tab():
-    """DCF Valuation"""
-    st.markdown("<h2>DCF VALUATION ANALYSIS</h2>", unsafe_allow_html=True)
-
-    dcf_df = load_dcf_data()
-
-    # Summary
-    st.markdown("<h3>PORTFOLIO SUMMARY</h3>", unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("AVG UPSIDE", f"{dcf_df['Upside_Percent'].mean():.1f}%")
-    with col2:
-        st.metric("UNDERVALUED", f"{len(dcf_df[dcf_df['Upside_Percent'] > 20])}")
-    with col3:
-        st.metric("OVERVALUED", f"{len(dcf_df[dcf_df['Upside_Percent'] < -10])}")
-    with col4:
-        total = (dcf_df['Fair_Value'] - dcf_df['Current_Price']).sum()
-        st.metric("TOTAL UPSIDE", f"€{total/1e6:.1f}M")
-
-    st.divider()
-
-    # Scatter
-    st.markdown("<h3>CURRENT VS FAIR VALUE</h3>", unsafe_allow_html=True)
-
-    fig = px.scatter(dcf_df, x='Current_Price', y='Fair_Value', size='Market_Cap',
-                     color='Upside_Percent', color_continuous_scale='RdYlGn',
-                     color_continuous_midpoint=0, hover_data=['Company'],
-                     template='plotly_dark')
-
-    max_val = max(dcf_df['Current_Price'].max(), dcf_df['Fair_Value'].max())
-    fig.add_trace(go.Scatter(x=[0, max_val], y=[0, max_val], mode='lines',
-                             line=dict(color='#9ca3af', dash='dash'), showlegend=False,
-                             name='Fair Value Line'))
-
-    fig.update_layout(
-        height=500,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='JetBrains Mono', color='#e5e7eb')
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-def display_rebalancing_tab():
-    """Rebalancing"""
-    st.markdown("<h2>PORTFOLIO REBALANCING</h2>", unsafe_allow_html=True)
-
-    rebal_df = load_rebalancing_data()
-
-    # Summary
-    total_trades = len(rebal_df[rebal_df['Action'] != 'HOLD'])
-    buy_amount = rebal_df[rebal_df['Action'] == 'BUY']['Amount'].sum()
-    sell_amount = abs(rebal_df[rebal_df['Action'] == 'SELL']['Amount'].sum())
-
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("TRADES", total_trades)
-    with col2:
-        st.metric("TO BUY", f"€{buy_amount/1e6:.2f}M")
-    with col3:
-        st.metric("TO SELL", f"€{sell_amount/1e6:.2f}M")
-    with col4:
-        st.metric("NET FLOW", f"€{abs(buy_amount - sell_amount)/1e6:.2f}M")
-
-    st.divider()
-
-    # Actions
-    buy_df = rebal_df[rebal_df['Action'] == 'BUY']
-    sell_df = rebal_df[rebal_df['Action'] == 'SELL']
-    hold_df = rebal_df[rebal_df['Action'] == 'HOLD']
-
-    tab1, tab2, tab3 = st.tabs([
-        f"BUY ({len(buy_df)})",
-        f"SELL ({len(sell_df)})",
-        f"HOLD ({len(hold_df)})"
-    ])
-
-    with tab1:
-        if len(buy_df) > 0:
-            st.dataframe(buy_df[['Company', 'Quality_Score', 'Amount',
-                                 'Current_Weight', 'Target_Weight']],
-                        use_container_width=True, hide_index=True)
-
-    with tab2:
-        if len(sell_df) > 0:
-            st.dataframe(sell_df[['Company', 'Quality_Score', 'Amount',
-                                  'Current_Weight', 'Target_Weight', 'Reason']],
-                        use_container_width=True, hide_index=True)
-
-    with tab3:
-        if len(hold_df) > 0:
-            st.dataframe(hold_df[['Company', 'Quality_Score', 'Current_Weight']],
-                        use_container_width=True, hide_index=True)
-
 def display_holdings_tab():
     """Holdings"""
     st.markdown("<h2>PORTFOLIO HOLDINGS</h2>", unsafe_allow_html=True)
@@ -1483,12 +1345,10 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "BRIDGE",
     "MARKETS",
     "SCORES",
-    "DCF",
-    "REBALANCE",
     "HOLDINGS",
     "AI"
 ])
@@ -1503,15 +1363,9 @@ with tab3:
     display_scores_tab()
 
 with tab4:
-    display_dcf_tab()
-
-with tab5:
-    display_rebalancing_tab()
-
-with tab6:
     display_holdings_tab()
 
-with tab7:
+with tab5:
     display_ai_tab()
 
 # Footer
