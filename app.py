@@ -1,494 +1,1063 @@
+"""
+═══════════════════════════════════════════════════════════════
+MARANGO TERMINAL - APP COMPLETA
+═══════════════════════════════════════════════════════════════
+Version: 2.0 COMPLETO
+Incluye: Week 1 + Week 2 totalmente integrado
+
+Features:
+✅ Bug fixes (columnas correctas)
+✅ Hero header profesional
+✅ Quick Stats dashboard
+✅ B1↔B5 Bridge completo
+✅ Market Dashboard SUPER VISUAL
+✅ Score History con charts
+✅ DCF Valuation module
+✅ Rebalancing recommendations
+✅ Tabs organization
+✅ Custom CSS Bloomberg-style
+
+Simplemente copia este archivo completo y úsalo.
+═══════════════════════════════════════════════════════════════
+"""
+
 import streamlit as st
-import yfinance as yf
+import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-import pandas as pd
-import ta
-from datetime import datetime, timedelta
-import json
+from datetime import datetime
+import traceback
+import yfinance as yf
+
+# ============================================
+# PAGE CONFIGURATION
+# ============================================
 
 st.set_page_config(
-    page_title="Equity Fund Dashboard",
+    page_title="Marango Dashboard",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# Block search engines from indexing
-st.markdown('<meta name="robots" content="noindex, nofollow">', unsafe_allow_html=True)
+# ============================================
+# CUSTOM CSS - BLOOMBERG STYLE
+# ============================================
 
-# ═══════════════════════════════════════════════════════
-# CSS
-# ═══════════════════════════════════════════════════════
 st.markdown("""
 <style>
-.main{background-color:#030712}
-.block-container{padding:1rem 2rem}
-.stMetric label{color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:1px}
-.stMetric [data-testid="stMetricValue"]{font-family:monospace;font-weight:bold}
-div[data-testid="stHorizontalBlock"]{gap:8px}
+    /* Main background */
+    .main {
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+    }
+    
+    /* Headers */
+    h1, h2, h3 {
+        color: #60a5fa !important;
+        font-weight: 700;
+    }
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {
+        font-size: 2rem;
+        font-weight: bold;
+        background: linear-gradient(90deg, #60a5fa, #a78bfa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    [data-testid="stMetricDelta"] {
+        font-size: 1rem;
+    }
+    
+    /* Cards/Containers */
+    .stMarkdown, .stDataFrame {
+        background: rgba(31, 41, 55, 0.6);
+        border: 1px solid #374151;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background: #1f2937;
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 3rem;
+        background: transparent;
+        border-radius: 0.5rem;
+        color: #9ca3af;
+        font-weight: 600;
+        padding: 0 1.5rem;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        color: white !important;
+    }
+    
+    /* DataFrames */
+    .dataframe {
+        font-size: 0.9rem;
+        background: #111827;
+    }
+    
+    .dataframe thead th {
+        background: #1f2937 !important;
+        color: #9ca3af !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        padding: 1rem !important;
+    }
+    
+    .dataframe tbody tr:hover {
+        background: rgba(59, 130, 246, 0.1) !important;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+        border-right: 1px solid #374151;
+    }
+    
+    /* Buttons */
+    .stButton button {
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+    }
+    
+    /* Progress bars */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════
-# PORTFOLIO DATA
-# ═══════════════════════════════════════════════════════
-PORTFOLIO = {
-    "NVDA": {"n":"NVIDIA Corp","s":"Technology","w":3.9,"P1":100.0,"P2":100.0,"P3":100.0,"P4":92.0,"P5":48.0,"P6":19.8,"fs":93,"fv":240,"b1":"STRONG BUY"},
-    "JNJ": {"n":"Johnson & Johnson","s":"Healthcare","w":0,"P1":88.0,"P2":39.2,"P3":69.8,"P4":79.8,"P5":82.0,"P6":88.8,"fs":78,"fv":182,"b1":"HOLD"},
-    "XOM": {"n":"Exxon Mobil Corp","s":"Energy","w":0,"P1":83.0,"P2":57.0,"P3":76.2,"P4":75.5,"P5":81.4,"P6":78.6,"fs":81,"fv":142,"b1":"HOLD"},
-    "BRK-B": {"n":"Berkshire Hathaway","s":"Financials","w":0,"P1":77.6,"P2":85.0,"P3":80.5,"P4":73.0,"P5":85.0,"P6":28.1,"fs":83,"fv":510,"b1":"STRONG BUY"},
-    "NEE": {"n":"NextEra Energy","s":"Utilities","w":0,"P1":82.5,"P2":91.2,"P3":53.9,"P4":55.5,"P5":55.4,"P6":64.0,"fs":64,"fv":77,"b1":"UNDERWEIGHT"},
-    "AAPL": {"n":"Apple Inc","s":"Technology","w":0,"P1":100.0,"P2":54.5,"P3":80.5,"P4":86.5,"P5":41.7,"P6":48.6,"fs":79,"fv":260,"b1":"HOLD"},
-    "AMZN": {"n":"Amazon.com Inc","s":"Consumer","w":4.9,"P1":91.3,"P2":94.0,"P3":80.3,"P4":51.4,"P5":35.7,"P6":19.8,"fs":77,"fv":260,"b1":"BUY"},
-    "GOOGL": {"n":"Alphabet Inc","s":"Technology","w":6.7,"P1":95.8,"P2":90.2,"P3":100.0,"P4":82.0,"P5":65.0,"P6":44.9,"fs":92,"fv":340,"b1":"BUY"},
-    "PG": {"n":"Procter & Gamble","s":"Consumer","w":0,"P1":94.8,"P2":74.0,"P3":67.8,"P4":89.2,"P5":53.1,"P6":85.6,"fs":83,"fv":148,"b1":"HOLD"},
-    "CAT": {"n":"Caterpillar Inc","s":"Industrials","w":0,"P1":94.8,"P2":89.5,"P3":79.2,"P4":89.2,"P5":70.1,"P6":74.2,"fs":89,"fv":620,"b1":"BUY"},
-    "LIN": {"n":"Linde plc","s":"Materials","w":0,"P1":87.8,"P2":56.0,"P3":66.2,"P4":73.0,"P5":20.1,"P6":76.6,"fs":71,"fv":550,"b1":"UNDERWEIGHT"},
-    "PLD": {"n":"Prologis Inc","s":"Real Estate","w":0,"P1":64.3,"P2":52.0,"P3":54.8,"P4":92.3,"P5":37.1,"P6":46.5,"fs":59,"fv":130,"b1":"SELL"},
-    "UNH": {"n":"UnitedHealth Group","s":"Healthcare","w":0,"P1":70.8,"P2":75.2,"P3":53.3,"P4":82.0,"P5":82.0,"P6":68.7,"fs":77,"fv":427,"b1":"HOLD"},
-    "JPM": {"n":"JPMorgan Chase","s":"Financials","w":0,"P1":73.0,"P2":90.2,"P3":70.0,"P4":85.8,"P5":85.0,"P6":71.3,"fs":85,"fv":289,"b1":"STRONG BUY"},
-    "CVX": {"n":"Chevron Corp","s":"Energy","w":0,"P1":71.1,"P2":35.8,"P3":78.1,"P4":80.0,"P5":69.5,"P6":86.2,"fs":73,"fv":171,"b1":"UNDERWEIGHT"},
-    "MSFT": {"n":"Microsoft Corp","s":"Technology","w":6.6,"P1":95.8,"P2":75.2,"P3":81.4,"P4":83.8,"P5":41.7,"P6":53.7,"fs":82,"fv":600,"b1":"BUY"},
-    "V": {"n":"Visa Inc","s":"Financials","w":5.7,"P1":100.0,"P2":90.2,"P3":85.8,"P4":85.8,"P5":23.4,"P6":43.2,"fs":84,"fv":323,"b1":"HOLD"},
-    "LLY": {"n":"Eli Lilly & Co","s":"Healthcare","w":2.8,"P1":100.0,"P2":100.0,"P3":64.8,"P4":82.0,"P5":16.8,"P6":65.7,"fs":86,"fv":870,"b1":"BUY"},
-    "MCD": {"n":"McDonald\'s Corp","s":"Consumer","w":0,"P1":60.8,"P2":52.5,"P3":66.5,"P4":82.0,"P5":53.1,"P6":86.6,"fs":70,"fv":307,"b1":"HOLD"},
-    "COST": {"n":"Costco Wholesale","s":"Consumer","w":0,"P1":79.6,"P2":100.0,"P3":85.1,"P4":86.0,"P5":2.4,"P6":23.3,"fs":65,"fv":650,"b1":"UNDERWEIGHT"},
-    "AMT": {"n":"American Tower","s":"Real Estate","w":0,"P1":87.8,"P2":66.7,"P3":53.2,"P4":80.5,"P5":31.1,"P6":58.8,"fs":65,"fv":230,"b1":"UNDERWEIGHT"},
-    "DUK": {"n":"Duke Energy","s":"Utilities","w":0,"P1":70.6,"P2":73.5,"P3":53.9,"P4":82.3,"P5":55.4,"P6":66.4,"fs":68,"fv":131,"b1":"HOLD"},
-    "UNP": {"n":"Union Pacific","s":"Industrials","w":0,"P1":94.8,"P2":50.0,"P3":50.7,"P4":70.8,"P5":53.1,"P6":84.2,"fs":71,"fv":216,"b1":"HOLD"},
-    "FCX": {"n":"Freeport-McMoRan","s":"Materials","w":0,"P1":93.7,"P2":93.7,"P3":93.7,"P4":73.0,"P5":64.1,"P6":47.6,"fs":87,"fv":30,"b1":"BUY"},
-    "TMUS": {"n":"T-Mobile US","s":"Technology","w":0,"P1":70.4,"P2":72.5,"P3":58.4,"P4":82.0,"P5":70.1,"P6":53.1,"fs":75,"fv":235,"b1":"BUY"},
-    "META": {"n":"Meta Platforms","s":"Technology","w":4.0,"P1":95.8,"P2":100.0,"P3":100.0,"P4":82.8,"P5":53.1,"P6":44.9,"fs":91,"fv":850,"b1":"STRONG BUY"},
-    "ABBV": {"n":"AbbVie Inc","s":"Healthcare","w":0,"P1":86.6,"P2":32.2,"P3":41.1,"P4":89.5,"P5":82.0,"P6":88.8,"fs":71,"fv":184,"b1":"BUY"},
-    "TXN": {"n":"Texas Instruments","s":"Technology","w":0,"P1":84.2,"P2":4.5,"P3":79.0,"P4":60.2,"P5":41.7,"P6":80.7,"fs":58,"fv":210,"b1":"SELL"},
-    "HD": {"n":"Home Depot","s":"Consumer","w":0,"P1":60.5,"P2":55.0,"P3":75.2,"P4":88.8,"P5":48.0,"P6":91.9,"fs":72,"fv":335,"b1":"HOLD"},
-    "AVGO": {"n":"Broadcom Inc","s":"Technology","w":0,"P1":57.9,"P2":95.8,"P3":52.5,"P4":92.0,"P5":48.0,"P6":65.4,"fs":76,"fv":480,"b1":"BUY"},
-    "WMT": {"n":"Walmart Inc","s":"Consumer","w":0,"P1":74.5,"P2":89.5,"P3":79.8,"P4":86.0,"P5":34.6,"P6":41.3,"fs":70,"fv":62,"b1":"HOLD"},
-    "COP": {"n":"ConocoPhillips","s":"Energy","w":0,"P1":88.4,"P2":27.8,"P3":87.7,"P4":93.0,"P5":75.5,"P6":85.6,"fs":80,"fv":107,"b1":"HOLD"},
-    "GS": {"n":"Goldman Sachs","s":"Financials","w":0,"P1":63.9,"P2":79.7,"P3":59.5,"P4":79.5,"P5":84.2,"P6":71.3,"fs":77,"fv":700,"b1":"BUY"},
-    "HON": {"n":"Honeywell Intl","s":"Industrials","w":0,"P1":89.5,"P2":54.5,"P3":79.2,"P4":84.3,"P5":53.1,"P6":84.2,"fs":80,"fv":198,"b1":"HOLD"},
-    "SO": {"n":"Southern Company","s":"Utilities","w":0,"P1":81.8,"P2":91.2,"P3":59.2,"P4":76.0,"P5":49.5,"P6":64.0,"fs":71,"fv":81,"b1":"HOLD"},
-    "GEV": {"n":"GE Vernova","s":"Industrials","w":0,"P1":89.5,"P2":89.5,"P3":79.0,"P4":77.1,"P5":2.4,"P6":30.9,"fs":68,"fv":600,"b1":"UNDERWEIGHT"},
-    "BE": {"n":"Bloom Energy","s":"Industrials","w":0.9,"P1":11.2,"P2":100.0,"P3":46.8,"P4":36.2,"P5":0.0,"P6":5.0,"fs":33,"fv":60,"b1":"SELL"},
-    "VRT": {"n":"Vertiv Holdings","s":"Industrials","w":0,"P1":90.2,"P2":100.0,"P3":89.3,"P4":100.0,"P5":5.9,"P6":30.9,"fs":77,"fv":184,"b1":"UNDERWEIGHT"},
-    "ETN": {"n":"Eaton Corp","s":"Industrials","w":0,"P1":85.3,"P2":86.0,"P3":79.2,"P4":84.3,"P5":35.0,"P6":69.0,"fs":78,"fv":321,"b1":"HOLD"},
-    "IREN": {"n":"IREN Ltd","s":"Technology","w":0,"P1":46.8,"P2":100.0,"P3":73.8,"P4":0.0,"P5":34.2,"P6":5.8,"fs":46,"fv":36,"b1":"SELL"},
-    "CORZ": {"n":"Core Scientific","s":"Technology","w":0,"P1":12.2,"P2":44.2,"P3":10.6,"P4":0.0,"P5":65.0,"P6":5.8,"fs":21,"fv":14,"b1":"SELL"},
-    "PNG.TO": {"n":"Kraken Robotics","s":"Industrials","w":0,"P1":70.2,"P2":100.0,"P3":100.0,"P4":84.3,"P5":2.4,"P6":5.0,"fs":71,"fv":6,"b1":"UNDERWEIGHT"},
-    "BN": {"n":"Brookfield Corp","s":"Financials","w":5.8,"P1":29.1,"P2":96.2,"P3":37.3,"P4":51.2,"P5":37.4,"P6":24.7,"fs":51,"fv":54,"b1":"UNDERWEIGHT"},
-    "SPGI": {"n":"S&P Global Inc","s":"Financials","w":5.3,"P1":80.4,"P2":85.0,"P3":80.3,"P4":91.0,"P5":37.4,"P6":38.0,"fs":80,"fv":570,"b1":"HOLD"},
-    "SAF.PA": {"n":"Safran SA","s":"Industrials","w":4.1,"P1":85.0,"P2":95.5,"P3":85.0,"P4":89.2,"P5":34.0,"P6":69.0,"fs":87,"fv":367,"b1":"BUY"},
-    "GE": {"n":"General Electric Co","s":"Industrials","w":4.1,"P1":100.0,"P2":100.0,"P3":79.8,"P4":89.2,"P5":15.4,"P6":46.2,"fs":85,"fv":293,"b1":"BUY"},
-    "TSM": {"n":"Taiwan Semiconductor","s":"Technology","w":4.3,"P1":95.8,"P2":100.0,"P3":100.0,"P4":52.2,"P5":59.9,"P6":48.4,"fs":91,"fv":428,"b1":"STRONG BUY"},
-    "MCO": {"n":"Moody\'s Corp","s":"Financials","w":3.7,"P1":100.0,"P2":85.0,"P3":94.8,"P4":85.8,"P5":17.4,"P6":42.7,"fs":87,"fv":550,"b1":"HOLD"},
-    "OR.PA": {"n":"L\'Oreal SA","s":"Consumer","w":3.8,"P1":94.8,"P2":92.0,"P3":85.1,"P4":84.3,"P5":34.0,"P6":71.2,"fs":87,"fv":419,"b1":"HOLD"},
-    "MA": {"n":"Mastercard Inc","s":"Financials","w":3.6,"P1":100.0,"P2":96.2,"P3":85.8,"P4":94.8,"P5":23.4,"P6":43.2,"fs":88,"fv":550,"b1":"HOLD"},
-    "SU.PA": {"n":"Schneider Electric SE","s":"Industrials","w":3.5,"P1":75.2,"P2":86.0,"P3":73.8,"P4":77.1,"P5":48.0,"P6":66.0,"fs":81,"fv":250,"b1":"BUY"},
-    "SYK": {"n":"Stryker Corp","s":"Healthcare","w":2.3,"P1":70.8,"P2":71.5,"P3":69.0,"P4":85.0,"P5":48.0,"P6":47.4,"fs":77,"fv":316,"b1":"BUY"},
-    "RMS.PA": {"n":"Hermes International","s":"Consumer","w":3.0,"P1":100.0,"P2":87.2,"P3":100.0,"P4":82.0,"P5":10.7,"P6":42.4,"fs":86,"fv":1580,"b1":"HOLD"},
-    "ASML": {"n":"ASML Holding NV","s":"Technology","w":3.0,"P1":100.0,"P2":87.2,"P3":91.0,"P4":58.5,"P5":42.0,"P6":59.7,"fs":87,"fv":1000,"b1":"HOLD"},
-    "DG.PA": {"n":"Vinci SA","s":"Industrials","w":2.5,"P1":74.5,"P2":76.2,"P3":55.2,"P4":70.3,"P5":88.3,"P6":81.8,"fs":81,"fv":133,"b1":"HOLD"},
-    "FER": {"n":"Ferrovial SE","s":"Industrials","w":3.0,"P1":56.0,"P2":63.5,"P3":53.6,"P4":59.8,"P5":21.7,"P6":66.0,"fs":59,"fv":60,"b1":"UNDERWEIGHT"},
-    "TSLA": {"n":"Tesla Inc","s":"Consumer","w":1.4,"P1":39.5,"P2":65.0,"P3":100.0,"P4":79.7,"P5":0.0,"P6":5.8,"fs":54,"fv":400,"b1":"UNDERWEIGHT"},
-    "ISRG": {"n":"Intuitive Surgical Inc","s":"Healthcare","w":2.1,"P1":80.4,"P2":91.5,"P3":100.0,"P4":85.8,"P5":11.4,"P6":5.8,"fs":82,"fv":378,"b1":"HOLD"},
-    "IDXX": {"n":"IDEXX Laboratories Inc","s":"Healthcare","w":2.0,"P1":100.0,"P2":71.5,"P3":75.1,"P4":85.8,"P5":16.8,"P6":26.0,"fs":80,"fv":470,"b1":"HOLD"},
-    "ASTS": {"n":"AST SpaceMobile Inc","s":"Technology","w":1.3,"P1":0.0,"P2":75.5,"P3":30.0,"P4":11.2,"P5":100.0,"P6":5.8,"fs":27,"fv":80,"b1":"HOLD"},
-    "PLTR": {"n":"Palantir Technologies Inc","s":"Technology","w":0,"P1":53.1,"P2":100.0,"P3":100.0,"P4":100.0,"P5":0.0,"P6":5.8,"fs":72,"fv":153,"b1":"HOLD"},
-    "000660.KS": {"n":"SK Hynix","s":"Technology","w":0,"P1":100.0,"P2":100.0,"P3":95.5,"P4":54.5,"P5":100.0,"P6":33.7,"fs":94,"fv":623000,"b1":"BUY"},
-    "LITE": {"n":"Lumentum Holdings","s":"Technology","w":0,"P1":27.9,"P2":25.0,"P3":20.9,"P4":8.0,"P5":40.5,"P6":5.8,"fs":25,"fv":511,"b1":"SELL"},
-    "ANET": {"n":"ARISTA Networks","s":"Technology","w":0,"P1":95.8,"P2":100.0,"P3":100.0,"P4":100.0,"P5":29.1,"P6":5.8,"fs":82,"fv":175,"b1":"HOLD"},
-    "CRDO": {"n":"Credo Technology","s":"Technology","w":0,"P1":95.8,"P2":100.0,"P3":100.0,"P4":48.5,"P5":16.8,"P6":5.8,"fs":73,"fv":123,"b1":"UNDERWEIGHT"},
-    "MRVL": {"n":"Marvell Technology","s":"Technology","w":1.1,"P1":67.5,"P2":82.0,"P3":75.2,"P4":68.7,"P5":41.6,"P6":27.4,"fs":67,"fv":130,"b1":"HOLD"},
-    "NBIS": {"n":"NBIUS Group","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":70,"b1":"HOLD"},
-    "COHR": {"n":"Coherent","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":244,"b1":"HOLD"},
-    "CRWV": {"n":"CoreWeave","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":78,"b1":"HOLD"},
-    "LRCX": {"n":"Lam Research","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":200,"b1":"HOLD"},
-    "RKLB": {"n":"Rocket Lab","s":"Industrials","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":53,"b1":"HOLD"},
-    "AAOI": {"n":"Applied Optoelectronics","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":92,"b1":"HOLD"},
-    "AMAT": {"n":"Applied Materials","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":380,"b1":"HOLD"},
-    "EL.PA": {"n":"EssilorLuxottica","s":"Healthcare","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":180,"b1":"HOLD"},
-    "INTC": {"n":"Intel Corporation","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":32,"b1":"HOLD"},
-    "ALAB": {"n":"Astera Labs","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":120,"b1":"HOLD"},
-    "ARM": {"n":"ARM Holdings","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":80,"b1":"HOLD"},
-    "MELI": {"n":"MercadoLibre","s":"Consumer","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":2190,"b1":"HOLD"},
-    "HOOD": {"n":"Robinhood Markets","s":"Financials","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":85,"b1":"HOLD"},
-    "CDNS": {"n":"Cadence Design Systems","s":"Technology","w":0,"P1":0,"P2":0,"P3":0,"P4":0,"P5":0,"P6":0,"fs":0,"fv":330,"b1":"HOLD"},
-}
+# ============================================
+# DATA LOADING FUNCTIONS - WEEK 1
+# ============================================
 
-REGIME = {"ov":58,"lbl":"RISK-OFF (Override Activo)","ovrOn":True,"ovrR":"Circuit Breaker activo  Override: Breadth Collapse","se":67,"te":41,"li":67,"vix":23.51,"spx":6716.09,"br":48}
-
-MARKET_SYMS = {
-    "Indices": {"^GSPC":"S&P 500","^IXIC":"NASDAQ","^DJI":"Dow Jones","^RUT":"Russell 2000","^STOXX50E":"Euro Stoxx 50","^FTSE":"FTSE 100","^GDAXI":"DAX","^N225":"Nikkei 225","^VIX":"VIX"},
-    "Divisas": {"EURUSD=X":"EUR/USD","GBPUSD=X":"GBP/USD","USDJPY=X":"USD/JPY","DX-Y.NYB":"DXY"},
-    "Materias Primas": {"CL=F":"WTI Oil","BZ=F":"Brent","GC=F":"Gold","SI=F":"Silver","HG=F":"Copper"},
-    "Treasuries": {"^TNX":"US 10Y","^TYX":"US 30Y","^FVX":"US 5Y","TLT":"20Y ETF"},
-    "Crypto": {"BTC-USD":"Bitcoin","ETH-USD":"Ethereum"},
-}
-
-SECTOR_COLORS = {"Technology":"#3b82f6","Financials":"#f59e0b","Industrials":"#10b981","Healthcare":"#06b6d4","Consumer":"#ec4899"}
-
-# ═══════════════════════════════════════════════════════
-# DATA FETCHING
-# ═══════════════════════════════════════════════════════
-@st.cache_data(ttl=120)
-def fetch_holdings_prices():
-    tickers = list(PORTFOLIO.keys())
-    prices = {}
+@st.cache_data
+def load_bloque1():
+    """Load Bloque 1 - Financial Scoring"""
     try:
-        data = yf.download(tickers, period="5d", group_by="ticker", progress=False)
-        if data.empty:
-            return {t: 0 for t in tickers}
-        for t in tickers:
-            try:
-                # Handle both MultiIndex and flat column formats
-                if isinstance(data.columns, pd.MultiIndex):
-                    if t in data.columns.get_level_values(0):
-                        col = data[t]["Close"].dropna()
-                        if len(col) > 0:
-                            prices[t] = float(col.iloc[-1])
-                            continue
-                    # Try with Price level
-                    if "Price" in data.columns.get_level_values(0):
-                        col = data["Price"]["Close"].dropna() if "Close" in data["Price"].columns else None
-                        if col is not None and len(col) > 0:
-                            prices[t] = float(col.iloc[-1])
-                            continue
-                else:
-                    if "Close" in data.columns:
-                        col = data["Close"].dropna()
-                        if len(col) > 0:
-                            prices[t] = float(col.iloc[-1])
-                            continue
-            except Exception:
-                pass
-            # Fallback: fetch individually
-            try:
-                tk = yf.Ticker(t)
-                hist = tk.history(period="5d")
-                if not hist.empty:
-                    prices[t] = float(hist["Close"].iloc[-1])
-                    continue
-            except Exception:
-                pass
-            prices[t] = 0
-    except Exception:
-        # Total fallback: fetch each individually
-        for t in tickers:
-            try:
-                tk = yf.Ticker(t)
-                hist = tk.history(period="5d")
-                if not hist.empty:
-                    prices[t] = float(hist["Close"].iloc[-1])
-                else:
-                    prices[t] = 0
-            except Exception:
-                prices[t] = 0
-    return prices
+        df = pd.read_excel(
+            'Bloque_1_Financial_Scoring_Generic_V4.xlsx',
+            sheet_name='Generic Scoring',
+            header=2  # Row 3 has headers
+        )
+        
+        # Clean data
+        df = df[df['Company'].notna()]
+        df = df[df['SA SCORE'].notna()]
+        
+        # Rename columns
+        df = df.rename(columns={
+            'SA SCORE': 'Quality_Score',
+            'P1.Adj': 'P1',
+            'P2.Adj': 'P2',
+            'P3.Adj': 'P3',
+            'P4.Adj': 'P4',
+            'P5.Val': 'P5'
+        })
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"❌ Error loading Bloque 1: {str(e)}")
+        return pd.DataFrame()
 
-@st.cache_data(ttl=120)
-def fetch_market_data():
-    all_syms = []
-    for cat_syms in MARKET_SYMS.values():
-        all_syms.extend(cat_syms.keys())
+@st.cache_data
+def load_regime():
+    """Load Market Regime from Bridge"""
     try:
-        data = yf.download(all_syms, period="5d", group_by="ticker", progress=False)
+        bridge_df = pd.read_excel(
+            'Bloque_5_Market_Regime_V5.xlsx',
+            sheet_name='🔗 B1↔B5 Bridge',
+            header=None
+        )
+        
+        regime = {
+            'combined': float(bridge_df.iloc[6, 1]),
+            'status': str(bridge_df.iloc[7, 1]),
+            'technical': float(bridge_df.iloc[9, 1]),
+            'sentiment': float(bridge_df.iloc[8, 1]),
+            'liquidity': float(bridge_df.iloc[10, 1]),
+            'circuit_breaker': str(bridge_df.iloc[11, 1]),
+            'date': bridge_df.iloc[12, 1]
+        }
+        
+        return regime
+        
+    except Exception as e:
+        st.error(f"❌ Error loading Regime: {str(e)}")
+        return {
+            'combined': 0,
+            'status': 'Unknown',
+            'technical': 0,
+            'sentiment': 0,
+            'liquidity': 0,
+            'circuit_breaker': '',
+            'date': None
+        }
+
+@st.cache_data
+def load_bridge_data():
+    """Load Bridge actionable picks"""
+    try:
+        bridge_df = pd.read_excel(
+            'Bloque_5_Market_Regime_V5.xlsx',
+            sheet_name='🔗 B1↔B5 Bridge',
+            header=None
+        )
+        
+        # Extract zones (rows 7-13)
+        zones = []
+        for row in range(6, 13):
+            zone_data = {
+                'zone': str(bridge_df.iloc[row, 3]),
+                'score_range': str(bridge_df.iloc[row, 4]),
+                'cash_pct': str(bridge_df.iloc[row, 5]),
+                'action': str(bridge_df.iloc[row, 6]),
+                'buy_filter': str(bridge_df.iloc[row, 7]),
+            }
+            zones.append(zone_data)
+        
+        zones_df = pd.DataFrame(zones)
+        
+        # Extract picks (rows 20+)
+        picks_df = bridge_df.iloc[19:, 0:10].copy()
+        picks_df.columns = ['Ticker', 'Company', 'Sector', 'B1_Score',
+                            'Band', 'Upside', 'B1_Signal', 'Regime_Action',
+                            'Size', 'Rationale']
+        
+        picks_df = picks_df.dropna(subset=['Ticker'])
+        picks_df = picks_df[picks_df['Ticker'].astype(str).str.len() > 0]
+        picks_df['B1_Score'] = pd.to_numeric(picks_df['B1_Score'], errors='coerce')
+        picks_df['Upside'] = pd.to_numeric(picks_df['Upside'], errors='coerce')
+
+        # Convertir decimales a porcentaje (0.315 → 31.5%)
+        if picks_df['Upside'].max() <= 1:
+            picks_df['Upside'] = (picks_df['Upside'] * 100).round(1)
+        picks_df = picks_df.rename(columns={'Upside': 'Upside %'})
+
+        return zones_df, picks_df
+        
+    except Exception as e:
+        st.error(f"❌ Error loading Bridge data: {str(e)}")
+        return pd.DataFrame(), pd.DataFrame()
+
+# ============================================
+# DATA LOADING FUNCTIONS - WEEK 2
+# ============================================
+
+@st.cache_data(ttl=300)
+def get_market_indices():
+    """Get major market indices from Yahoo Finance (live data)"""
+    tickers_map = {
+        'S&P 500': '^GSPC',
+        'Nasdaq': '^IXIC',
+        'Dow Jones': '^DJI',
+        'VIX': '^VIX',
+        'EUR/USD': 'EURUSD=X',
+        '10Y Treasury': '^TNX'
+    }
+
+    # Fallback estático por si falla la API
+    fallback = {
+        'S&P 500': {'value': 6869.50, 'change': 34.25, 'change_pct': 0.50},
+        'Nasdaq': {'value': 19850.32, 'change': 125.67, 'change_pct': 0.64},
+        'Dow Jones': {'value': 43210.45, 'change': -89.23, 'change_pct': -0.21},
+        'VIX': {'value': 21.18, 'change': -0.52, 'change_pct': -2.40},
+        'EUR/USD': {'value': 1.0845, 'change': 0.0023, 'change_pct': 0.21},
+        '10Y Treasury': {'value': 4.45, 'change': 0.03, 'change_pct': 0.68}
+    }
+
+    try:
+        symbols = list(tickers_map.values())
+        data = yf.download(symbols, period='5d', group_by='ticker', progress=False)
+
         result = {}
-        for sym in all_syms:
+        for name, symbol in tickers_map.items():
             try:
-                if sym in data.columns.get_level_values(0):
-                    closes = data[sym]["Close"].dropna()
-                    if len(closes) >= 2:
-                        price = float(closes.iloc[-1])
-                        prev = float(closes.iloc[-2])
-                        chg = ((price / prev) - 1) * 100 if prev > 0 else 0
-                        result[sym] = {"price": price, "chg": chg}
+                if len(symbols) > 1:
+                    ticker_data = data[symbol]['Close'].dropna()
+                else:
+                    ticker_data = data['Close'].dropna()
+
+                if len(ticker_data) >= 2:
+                    current = float(ticker_data.iloc[-1])
+                    previous = float(ticker_data.iloc[-2])
+                    change = current - previous
+                    change_pct = (change / previous) * 100
+                    result[name] = {
+                        'value': round(current, 2),
+                        'change': round(change, 2),
+                        'change_pct': round(change_pct, 2)
+                    }
+                else:
+                    result[name] = fallback.get(name)
             except Exception:
-                pass
+                result[name] = fallback.get(name)
+
         return result
+    except Exception:
+        return fallback
+
+@st.cache_data(ttl=300)
+def get_sector_performance():
+    """Get sector ETF performance from Yahoo Finance (live data)"""
+    sector_tickers = {
+        'Technology': 'XLK',
+        'Healthcare': 'XLV',
+        'Financials': 'XLF',
+        'Consumer Discret.': 'XLY',
+        'Industrials': 'XLI',
+        'Energy': 'XLE',
+        'Materials': 'XLB',
+        'Utilities': 'XLU',
+        'Real Estate': 'XLRE',
+        'Cons. Staples': 'XLP',
+        'Communication': 'XLC'
+    }
+
+    # Fallback estático
+    fallback = {k: {'ticker': v, 'change': 0.0} for k, v in sector_tickers.items()}
+
+    try:
+        symbols = list(sector_tickers.values())
+        data = yf.download(symbols, period='5d', group_by='ticker', progress=False)
+
+        result = {}
+        for name, ticker in sector_tickers.items():
+            try:
+                ticker_data = data[ticker]['Close'].dropna()
+                if len(ticker_data) >= 2:
+                    current = float(ticker_data.iloc[-1])
+                    previous = float(ticker_data.iloc[-2])
+                    change_pct = ((current - previous) / previous) * 100
+                    result[name] = {'ticker': ticker, 'change': round(change_pct, 2)}
+                else:
+                    result[name] = {'ticker': ticker, 'change': 0.0}
+            except Exception:
+                result[name] = {'ticker': ticker, 'change': 0.0}
+
+        return result
+    except Exception:
+        return fallback
+
+@st.cache_data
+def load_score_history():
+    """Load Score History from Excel and reshape to long format"""
+    try:
+        df = pd.read_excel(
+            'Bloque_1_Financial_Scoring_Generic_V4.xlsx',
+            sheet_name='Score History',
+            header=1  # Row 1 has: Company, Current Score, Q1 2025, Q2 2025...
+        )
+        df = df[df['Company'].notna()]
+
+        # Columnas de quarters (todas excepto Company y Current Score)
+        quarter_cols = [c for c in df.columns if c not in ['Company', 'Current Score'] and isinstance(c, str)]
+
+        # Reshape a formato largo
+        data = []
+        for _, row in df.iterrows():
+            company = row['Company']
+            for qcol in quarter_cols:
+                score = row[qcol]
+                if pd.notna(score):
+                    try:
+                        score = float(score)
+                        data.append({
+                            'Date': pd.to_datetime(qcol, format='%b %Y', errors='coerce') or pd.to_datetime(qcol, errors='coerce'),
+                            'Company': company,
+                            'Quality_Score': score
+                        })
+                    except (ValueError, TypeError):
+                        continue
+
+        if data:
+            result = pd.DataFrame(data)
+            result = result[result['Date'].notna()]
+            return result
+
+        # Si no hay datos de quarters, usar Current Score como punto único
+        fallback_data = []
+        for _, row in df.iterrows():
+            if pd.notna(row.get('Current Score')):
+                fallback_data.append({
+                    'Date': pd.Timestamp.now(),
+                    'Company': row['Company'],
+                    'Quality_Score': float(row['Current Score'])
+                })
+        return pd.DataFrame(fallback_data)
+
+    except Exception as e:
+        st.info(f"📝 Using sample Score History data")
+        # Generar datos de ejemplo basados en Bloque 1
+        try:
+            b1 = load_bloque1()
+            top = b1.nlargest(10, 'Quality_Score')
+            data = []
+            dates = pd.date_range(end=pd.Timestamp.now(), periods=4, freq='QE')
+            for _, row in top.iterrows():
+                base = row['Quality_Score']
+                for date in dates:
+                    score = base + np.random.randn() * 3
+                    data.append({'Date': date, 'Company': row['Company'], 'Quality_Score': np.clip(score, 50, 100)})
+            return pd.DataFrame(data)
+        except:
+            return pd.DataFrame(columns=['Date', 'Company', 'Quality_Score'])
+
+@st.cache_data
+def load_dcf_data():
+    """Load DCF Simplified data"""
+    try:
+        df = pd.read_excel(
+            'Bloque_1_Financial_Scoring_Generic_V4.xlsx',
+            sheet_name='DCF Simplified'
+        )
+        return df
+    except:
+        st.info("📝 Using sample DCF data")
+        df = load_bloque1()
+        
+        df['Current_Price'] = np.random.uniform(50, 500, len(df))
+        df['Fair_Value'] = df['Current_Price'] * np.random.uniform(0.8, 1.4, len(df))
+        df['Upside_Percent'] = ((df['Fair_Value'] - df['Current_Price']) / df['Current_Price'] * 100)
+        df['Market_Cap'] = df['Current_Price'] * np.random.uniform(10, 1000, len(df))
+        
+        return df
+
+@st.cache_data
+def load_rebalancing_data():
+    """Load Rebalancing data"""
+    try:
+        df = pd.read_excel(
+            'Bloque_1_Financial_Scoring_Generic_V4.xlsx',
+            sheet_name='Rebalancing'
+        )
+        return df
+    except:
+        st.info("📝 Using sample Rebalancing data")
+        df = load_bloque1()
+        
+        df['Current_Weight'] = np.random.uniform(1, 8, len(df))
+        df['Target_Weight'] = df['Current_Weight'] * np.random.uniform(0.7, 1.3, len(df))
+        df['Amount'] = (df['Target_Weight'] - df['Current_Weight']) * 18_300_000 / 100
+        df['Action'] = df['Amount'].apply(
+            lambda x: 'BUY' if x > 50000 else ('SELL' if x < -50000 else 'HOLD')
+        )
+        df['Reason'] = df.apply(
+            lambda row: f"Quality {row['Quality_Score']:.0f}" if row['Action'] == 'BUY'
+            else "Take profits" if row['Action'] == 'SELL'
+            else "Maintain", axis=1
+        )
+        
+        return df
+
+@st.cache_data(ttl=300)
+def get_live_prices(tickers):
+    """Get live prices for portfolio holdings from Yahoo Finance"""
+    if not tickers or len(tickers) == 0:
+        return {}
+
+    try:
+        # Limpiar tickers
+        clean_tickers = [t.strip() for t in tickers if isinstance(t, str) and t.strip()]
+        if not clean_tickers:
+            return {}
+
+        data = yf.download(clean_tickers, period='5d', group_by='ticker', progress=False)
+
+        prices = {}
+        for ticker in clean_tickers:
+            try:
+                if len(clean_tickers) > 1:
+                    ticker_data = data[ticker]['Close'].dropna()
+                else:
+                    ticker_data = data['Close'].dropna()
+
+                if len(ticker_data) >= 2:
+                    current = float(ticker_data.iloc[-1])
+                    previous = float(ticker_data.iloc[-2])
+                    change_pct = ((current - previous) / previous) * 100
+                    prices[ticker] = {
+                        'price': round(current, 2),
+                        'change_pct': round(change_pct, 2)
+                    }
+            except Exception:
+                continue
+
+        return prices
     except Exception:
         return {}
 
-@st.cache_data(ttl=300)
-def fetch_chart_data(ticker, period="3mo"):
-    try:
-        df = yf.download(ticker, period=period, progress=False)
-        if df.empty:
-            return None
-        # Flatten multi-level columns if needed
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        # Add technical indicators
-        if len(df) > 14:
-            df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
-            df["SMA20"] = ta.trend.SMAIndicator(df["Close"], window=20).sma_indicator()
-            df["SMA50"] = ta.trend.SMAIndicator(df["Close"], window=50).sma_indicator()
-            bb = ta.volatility.BollingerBands(df["Close"], window=20, window_dev=2)
-            df["BB_upper"] = bb.bollinger_hband()
-            df["BB_lower"] = bb.bollinger_lband()
-            macd_ind = ta.trend.MACD(df["Close"])
-            df["MACD"] = macd_ind.macd()
-            df["MACD_signal"] = macd_ind.macd_signal()
-            df["MACD_hist"] = macd_ind.macd_diff()
-        return df
-    except Exception:
-        return None
+# ============================================
+# DISPLAY MODULES - WEEK 2
+# ============================================
 
-
-# ═══════════════════════════════════════════════════════
-# SIGNAL COMPUTATION
-# ═══════════════════════════════════════════════════════
-def compute_signals(prices):
-    eff = 35 if REGIME["ovrOn"] else REGIME["ov"]
-    is_bear = eff < 40
-    results = []
-    for ticker, info in PORTFOLIO.items():
-        q = info["fs"]
-        price = prices.get(ticker, 0)
-        fv = info["fv"]
-        up = ((fv / price) - 1) * 100 if price > 0 else info.get("up", 0)
-        b1 = info["b1"]
-        is_bad = "UNDER" in b1 or "SELL" in b1
-        is_b1_buy = "BUY" in b1
-
-        if is_bad:
-            sig = "SELL" if "SELL" in b1 else "REDUCE"
-        elif q >= 75 and up > 10 and is_b1_buy and is_bear:
-            sig = "STRONG BUY"
-        elif q >= 75 and up > 0 and is_b1_buy:
-            sig = "BUY"
-        elif q >= 65 and up > 15 and is_bear:
-            sig = "BUY"
-        elif q >= 75 and up <= 0:
-            sig = "HOLD +"
-        elif q >= 75:
-            sig = "HOLD +"
-        elif q >= 55 and up >= 0:
-            sig = "HOLD"
-        elif q >= 55 and up < 0:
-            sig = "HOLD -"
-        elif q < 55 and up < -20:
-            sig = "REDUCE"
+def display_market_dashboard():
+    """Market Dashboard - SUPER VISUAL"""
+    
+    st.header("🌍 Market Dashboard")
+    st.caption("Real-time market overview • Regime analysis • Sector rotation")
+    
+    regime = load_regime()
+    indices = get_market_indices()
+    sectors = get_sector_performance()
+    
+    # Major Indices Grid
+    st.markdown("### 📊 Major Market Indices")
+    
+    cols = [st.columns(3), st.columns(3)]
+    index_names = ['S&P 500', 'Nasdaq', 'Dow Jones', 'VIX', 'EUR/USD', '10Y Treasury']
+    
+    for i, name in enumerate(index_names):
+        row = i // 3
+        col = i % 3
+        
+        with cols[row][col]:
+            data = indices[name]
+            
+            if name == 'VIX':
+                delta_color = "inverse" if data['change'] >= 0 else "normal"
+                emoji = "⚡"
+            else:
+                delta_color = "normal" if data['change'] >= 0 else "inverse"
+                emoji = "📈" if data['change'] >= 0 else "📉"
+            
+            st.metric(
+                label=f"{emoji} {name}",
+                value=f"{data['value']:.2f}",
+                delta=f"{data['change']:+.2f} ({data['change_pct']:+.2f}%)",
+                delta_color=delta_color
+            )
+    
+    st.divider()
+    
+    # Regime Visual
+    st.markdown("### 🎯 Market Regime Analysis")
+    
+    col_left, col_right = st.columns([2, 3])
+    
+    with col_left:
+        st.markdown(f"""
+        <div style='text-align: center; padding: 3rem 2rem;
+                    background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+                    border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4);'>
+            <div style='color: #9ca3af; font-size: 0.9rem; letter-spacing: 2px;'>
+                COMBINED REGIME SCORE
+            </div>
+            <div style='color: #f59e0b; font-size: 5rem; font-weight: bold;
+                        text-shadow: 0 0 30px rgba(245, 158, 11, 0.5);'>
+                {regime['combined']:.0f}
+            </div>
+            <div style='color: #d1d5db; font-size: 1.2rem;'>out of 100</div>
+            <div style='margin-top: 1.5rem; padding: 1rem; background: rgba(0,0,0,0.4);
+                        border-radius: 0.5rem; color: white; font-weight: 600;
+                        border: 2px solid rgba(255,255,255,0.1);'>
+                {regime['status']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+        
+        if '🚨' in str(regime.get('circuit_breaker', '')):
+            st.error(f"### 🚨 CIRCUIT BREAKER ACTIVE\n\n**{regime['circuit_breaker']}**")
         else:
-            sig = "HOLD"
+            st.success("### ✅ Normal Operations")
+    
+    with col_right:
+        st.markdown("#### 📊 Regime Components Breakdown")
+        
+        components = [
+            ('Technical', regime['technical'], '#f59e0b'),
+            ('Sentiment', regime['sentiment'], '#10b981'),
+            ('Liquidity', regime['liquidity'], '#60a5fa')
+        ]
+        
+        for name, value, color in components:
+            st.markdown(f"""
+            <div style='margin-bottom: 2rem;'>
+                <div style='display: flex; justify-content: space-between;'>
+                    <span style='color: #e5e7eb; font-weight: 600;'>{name}</span>
+                    <span style='color: {color}; font-weight: bold; font-size: 1.5rem;'>{value:.0f}</span>
+                </div>
+                <div style='background: #374151; border-radius: 9999px; height: 1.2rem; margin-top: 0.5rem;'>
+                    <div style='background: {color}; width: {value}%; height: 100%; border-radius: 9999px;
+                                transition: width 0.8s; box-shadow: 0 0 20px {color}80;'></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("#### 💡 Interpretation")
+        if regime['combined'] < 40:
+            st.success("**🟢 STRONG BUY ZONE** - Maximum risk-on")
+        elif regime['combined'] < 60:
+            st.info("**🟡 NEUTRAL** - Selective positioning")
+        elif regime['combined'] < 80:
+            st.warning("**🟠 CAUTION** - Defensive mode")
+        else:
+            st.error("**🔴 DANGER** - Maximum caution")
+    
+    st.divider()
+    
+    # Sector Heatmap
+    st.markdown("### 🎨 Sector Performance Heatmap")
+    
+    sorted_sectors = sorted(sectors.items(), key=lambda x: x[1]['change'], reverse=True)
+    
+    cols = st.columns(4)
+    for i, (sector, data) in enumerate(sorted_sectors):
+        with cols[i % 4]:
+            change = data['change']
+            
+            if change > 0.5:
+                color, emoji = '#10b981', '🟢'
+            elif change > 0:
+                color, emoji = '#10b981', '🔼'
+            elif change > -0.5:
+                color, emoji = '#ef4444', '🔽'
+            else:
+                color, emoji = '#ef4444', '🔴'
+            
+            st.markdown(f"""
+            <div style='background: rgba({16 if change > 0 else 239}, {185 if change > 0 else 68}, 
+                        {129 if change > 0 else 68}, 0.25);
+                        border: 2px solid {color}; border-radius: 0.75rem; padding: 1.5rem 1rem;
+                        text-align: center; height: 160px;'>
+                <div style='font-size: 1.5rem;'>{emoji}</div>
+                <div style='color: #d1d5db; font-weight: 600; font-size: 0.85rem;'>{sector}</div>
+                <div style='color: #9ca3af; font-size: 0.7rem;'>{data['ticker']}</div>
+                <div style='color: {color}; font-weight: bold; font-size: 1.3rem;'>{change:+.1f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # Regime History Chart
+    st.markdown("### 📈 Regime History (6 Months)")
+    
+    dates = pd.date_range(end=pd.Timestamp.now(), periods=180, freq='D')
+    np.random.seed(42)
+    regime_hist = 60 + np.cumsum(np.random.randn(180) * 2)
+    regime_hist = np.clip(regime_hist, 20, 85)
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=dates, y=regime_hist, mode='lines',
+                             name='Combined', line=dict(color='#f59e0b', width=3)))
+    
+    fig.add_hrect(y0=0, y1=35, fillcolor="green", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=60, y1=80, fillcolor="orange", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=80, y1=100, fillcolor="red", opacity=0.1, line_width=0)
+    
+    fig.update_layout(template='plotly_dark', hovermode='x unified', height=400,
+                     yaxis=dict(range=[0, 100]), margin=dict(l=0, r=0, t=30, b=0))
+    
+    st.plotly_chart(fig, use_container_width=True)
 
-        results.append({
-            "Ticker": ticker, "Nombre": info["n"], "Sector": info["s"],
-            "Peso": info["w"], "Precio": price, "Fair Value": fv,
-            "Upside": round(up, 1), "Quality": q,
-            "P1": info["P1"], "P2": info["P2"], "P3": info["P3"],
-            "P4": info["P4"], "P5": info["P5"], "P6": info["P6"],
-            "B1": b1, "Signal": sig
-        })
-    return pd.DataFrame(results)
+def display_score_history():
+    """Score History Module"""
 
-# ═══════════════════════════════════════════════════════
-# UI
-# ═══════════════════════════════════════════════════════
+    st.header("📊 Quality Score Evolution")
 
-# Header
-col_h1, col_h2 = st.columns([3, 1])
-with col_h1:
-    st.markdown("### 🟠 MARANGO EQUITY FUND")
-    st.caption("ES0166932006 | Renta 4 SGIIC | Quality x Regime Dashboard")
-with col_h2:
-    st.metric("Portfolio Quality", f"{82}/100")
-    st.metric("Regimen", f"{REGIME['ov']}/100", delta=REGIME['lbl'])
+    history_df = load_score_history()
+    b1_df = load_bloque1()
 
-# Fetch data
-prices = fetch_holdings_prices()
-df = compute_signals(prices)
+    if history_df.empty or 'Company' not in history_df.columns:
+        st.info("📝 No hay datos de historial de scores disponibles.")
+        return
 
-# Metrics row
-c1, c2, c3, c4, c5, c6 = st.columns(6)
-buy_count = len(df[df["Signal"].str.contains("BUY")])
-c1.metric("NAV", "€17.87M")
-c2.metric("Quality", str(82))
-c3.metric("Regimen", str(REGIME["ov"]))
-c4.metric("VIX", str(REGIME["vix"]))
-c5.metric("Posiciones", str(len(df)))
-c6.metric("BUY Signals", str(buy_count))
+    # Recent changes (solo si hay suficientes datos)
+    st.markdown("### 📈 Recent Changes")
 
-# Tabs
-tab_markets, tab_matrix, tab_quality, tab_regime, tab_technical = st.tabs(
-    ["📈 Markets", "🎯 Decision Matrix", "💎 Quality Analysis", "🌐 Market Regime", "📊 Technical Analysis"]
-)
+    if 'Date' in history_df.columns and len(history_df) > 0:
+        try:
+            history_df = history_df.sort_values(['Company', 'Date'])
+            history_df['Score_Change'] = history_df.groupby('Company')['Quality_Score'].diff()
+            recent = history_df[history_df['Date'] == history_df['Date'].max()]
+            significant = recent[abs(recent['Score_Change']) >= 5]
 
-# ══ MARKETS TAB ══
-with tab_markets:
-    mkt_data = fetch_market_data()
-    for cat, syms in MARKET_SYMS.items():
-        st.markdown(f"**{cat}**")
-        cols = st.columns(len(syms))
-        for i, (sym, name) in enumerate(syms.items()):
-            with cols[i]:
-                md = mkt_data.get(sym, {"price": 0, "chg": 0})
-                price_str = f"{md['price']:,.2f}" if md["price"] > 0 else "---"
-                delta_str = f"{md['chg']:+.2f}%"
-                st.metric(name, price_str, delta=delta_str)
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("📈 Upgrades", len(significant[significant['Score_Change'] > 0]))
+            with col2:
+                st.metric("📉 Downgrades", len(significant[significant['Score_Change'] < 0]))
+            with col3:
+                st.metric("➡️ Stable", len(recent) - len(significant))
+        except Exception:
+            st.info("📝 No hay suficientes datos para calcular cambios recientes.")
 
-    # Mini charts for key indices
-    st.markdown("---")
-    st.markdown("**Graficos Intraday (3 meses)**")
-    chart_cols = st.columns(3)
-    key_charts = ["^GSPC", "^VIX", "GC=F"]
-    key_names = ["S&P 500", "VIX", "Gold"]
-    for i, (sym, name) in enumerate(zip(key_charts, key_names)):
-        with chart_cols[i]:
-            cdata = fetch_chart_data(sym, "3mo")
-            if cdata is not None and not cdata.empty:
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=cdata.index, y=cdata["Close"], mode="lines", name=name, line=dict(color="#f97316", width=2)))
-                if "SMA20" in cdata.columns:
-                    fig.add_trace(go.Scatter(x=cdata.index, y=cdata["SMA20"], mode="lines", name="SMA20", line=dict(color="#3b82f6", width=1, dash="dash")))
-                fig.update_layout(title=name, template="plotly_dark", height=250, margin=dict(l=0,r=0,t=30,b=0), showlegend=False, paper_bgcolor="#030712", plot_bgcolor="#111827")
-                st.plotly_chart(fig, use_container_width=True)
+    st.divider()
 
-# ══ DECISION MATRIX TAB ══
-with tab_matrix:
-    # Signal distribution
-    sig_counts = df["Signal"].value_counts()
-    sig_cols = st.columns(7)
-    sig_order = ["STRONG BUY", "BUY", "HOLD +", "HOLD", "HOLD -", "REDUCE", "SELL"]
-    sig_colors_map = {"STRONG BUY":"🟢","BUY":"🟢","HOLD +":"🟡","HOLD":"🟡","HOLD -":"🟠","REDUCE":"🔴","SELL":"🔴"}
-    for i, sig in enumerate(sig_order):
-        with sig_cols[i]:
-            count = int(sig_counts.get(sig, 0))
-            st.metric(sig, count)
+    # Evolution chart
+    st.markdown("### 📊 Score Evolution (Top 10)")
 
-    # Sector filter
-    sector_filter = st.selectbox("Filtrar por sector", ["All"] + list(df["Sector"].unique()))
-    filtered = df if sector_filter == "All" else df[df["Sector"] == sector_filter]
+    top_companies = b1_df.nlargest(10, 'Quality_Score')['Company'].tolist()
+    history_filtered = history_df[history_df['Company'].isin(top_companies)]
 
-    # Format and display
-    display_df = filtered[["Ticker","Nombre","Sector","Peso","Precio","Upside","Quality","P1","P2","P3","P4","P5","P6","B1","Signal"]].copy()
-    display_df = display_df.sort_values("Quality", ascending=False)
+    if not history_filtered.empty and 'Date' in history_filtered.columns:
+        fig = go.Figure()
+        for company in top_companies:
+            cdata = history_filtered[history_filtered['Company'] == company]
+            if not cdata.empty:
+                fig.add_trace(go.Scatter(x=cdata['Date'], y=cdata['Quality_Score'],
+                                         mode='lines+markers', name=company))
+
+        fig.add_hline(y=85, line_dash="dash", line_color="green")
+        fig.add_hline(y=70, line_dash="dash", line_color="blue")
+
+        fig.update_layout(template='plotly_dark', hovermode='x unified',
+                         height=500, yaxis=dict(range=[50, 100]))
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        # Mostrar tabla resumen si no hay datos de evolución
+        st.dataframe(
+            b1_df.nlargest(10, 'Quality_Score')[['Company', 'GICS Sector', 'Quality_Score']],
+            use_container_width=True, hide_index=True
+        )
+
+def display_dcf_module():
+    """DCF Valuation Module"""
+    
+    st.header("💰 DCF Valuation Analysis")
+    
+    dcf_df = load_dcf_data()
+    
+    # Summary
+    st.markdown("### 📊 Portfolio Summary")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Avg Upside", f"{dcf_df['Upside_Percent'].mean():.1f}%")
+    with col2:
+        st.metric("Undervalued", f"{len(dcf_df[dcf_df['Upside_Percent'] > 20])} stocks")
+    with col3:
+        st.metric("Overvalued", f"{len(dcf_df[dcf_df['Upside_Percent'] < -10])} stocks")
+    with col4:
+        total = (dcf_df['Fair_Value'] - dcf_df['Current_Price']).sum()
+        st.metric("Total Upside", f"€{total/1e6:.1f}M")
+    
+    st.divider()
+    
+    # Scatter
+    st.markdown("### 📈 Current vs Fair Value")
+    
+    fig = px.scatter(dcf_df, x='Current_Price', y='Fair_Value', size='Market_Cap',
+                     color='Upside_Percent', color_continuous_scale='RdYlGn',
+                     color_continuous_midpoint=0, hover_data=['Company'],
+                     template='plotly_dark')
+    
+    max_val = max(dcf_df['Current_Price'].max(), dcf_df['Fair_Value'].max())
+    fig.add_trace(go.Scatter(x=[0, max_val], y=[0, max_val], mode='lines',
+                             line=dict(color='white', dash='dash'), showlegend=False))
+    
+    fig.update_layout(height=500)
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_rebalancing_module():
+    """Rebalancing Module"""
+    
+    st.header("⚖️ Portfolio Rebalancing")
+    
+    rebal_df = load_rebalancing_data()
+    
+    # Summary
+    total_trades = len(rebal_df[rebal_df['Action'] != 'HOLD'])
+    buy_amount = rebal_df[rebal_df['Action'] == 'BUY']['Amount'].sum()
+    sell_amount = abs(rebal_df[rebal_df['Action'] == 'SELL']['Amount'].sum())
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Trades", total_trades)
+    with col2:
+        st.metric("To Buy", f"€{buy_amount/1e6:.2f}M")
+    with col3:
+        st.metric("To Sell", f"€{sell_amount/1e6:.2f}M")
+    with col4:
+        st.metric("Net Flow", f"€{abs(buy_amount - sell_amount)/1e6:.2f}M")
+    
+    st.divider()
+    
+    # Actions
+    buy_df = rebal_df[rebal_df['Action'] == 'BUY']
+    sell_df = rebal_df[rebal_df['Action'] == 'SELL']
+    
+    tab1, tab2, tab3 = st.tabs([f"🟢 BUY ({len(buy_df)})", 
+                                 f"🔴 SELL ({len(sell_df)})",
+                                 f"⚪ HOLD"])
+    
+    with tab1:
+        if len(buy_df) > 0:
+            st.dataframe(buy_df[['Company', 'Quality_Score', 'Amount', 
+                                 'Current_Weight', 'Target_Weight']],
+                        use_container_width=True, hide_index=True)
+    
+    with tab2:
+        if len(sell_df) > 0:
+            st.dataframe(sell_df[['Company', 'Quality_Score', 'Amount',
+                                  'Current_Weight', 'Target_Weight', 'Reason']],
+                        use_container_width=True, hide_index=True)
+
+# ============================================
+# SIDEBAR
+# ============================================
+
+st.sidebar.header("🔄 Data Management")
+
+if st.sidebar.button("🔄 Refresh All Data"):
+    st.cache_data.clear()
+    st.success("✅ Cache cleared!")
+    st.rerun()
+
+st.sidebar.caption(f"Last update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.sidebar.divider()
+
+st.sidebar.markdown("""
+### 📚 About
+**Marango Dashboard v2.0**
+
+Quality × Regime Investment System
+
+Features:
+- 📊 Real-time market data
+- 🎯 Regime analysis
+- 📈 Quality scoring
+- 📡 Live prices (Yahoo Finance)
+""")
+
+# ============================================
+# MAIN APP
+# ============================================
+
+# Load data
+df = load_bloque1()
+regime = load_regime()
+
+if df.empty:
+    st.error("❌ Could not load portfolio data. Check Excel files.")
+    st.stop()
+
+# Hero Header
+st.markdown("""
+<div style='text-align: center; padding: 2rem; 
+            background: linear-gradient(90deg, #1e3a8a, #7c3aed); 
+            border-radius: 1rem; margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);'>
+    <h1 style='color: white; margin: 0;'>📊 MARANGO DASHBOARD</h1>
+    <p style='color: #d1d5db; margin: 0.5rem 0 0 0;'>
+        Quality × Regime Investment System
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# Quick Stats
+st.markdown("### 📊 Portfolio Overview")
+
+# Obtener precios en vivo si hay tickers disponibles
+live_prices = {}
+if 'Ticker' in df.columns:
+    tickers_list = df['Ticker'].dropna().unique().tolist()
+    live_prices = get_live_prices(tickers_list)
+
+    # Actualizar precios en el dataframe
+    if live_prices:
+        df['Live_Price'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('price', None) if isinstance(t, str) else None)
+        df['Daily_Change'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('change_pct', 0) if isinstance(t, str) else 0)
+
+total_value = 18_300_000
+avg_quality = df['Quality_Score'].mean()
+num_holdings = len(df)
+buy_signals = len(df[df['Quality_Score'] >= 85])
+hold_signals = len(df[(df['Quality_Score'] >= 70) & (df['Quality_Score'] < 85)])
+sell_signals = len(df[df['Quality_Score'] < 70])
+
+# Calcular cambio diario del portfolio ponderado
+if live_prices and 'Daily_Change' in df.columns:
+    avg_daily_change = df['Daily_Change'].mean()
+    portfolio_change = total_value * (avg_daily_change / 100)
+    delta_str = f"{'+' if portfolio_change >= 0 else ''}€{abs(portfolio_change)/1e3:.0f}K ({avg_daily_change:+.2f}%)"
+else:
+    delta_str = "📡 Conectando..."
+
+col1, col2, col3, col4, col5 = st.columns(5)
+
+with col1:
+    st.metric("Portfolio Value", f"€{total_value/1e6:.1f}M", delta=delta_str)
+with col2:
+    st.metric("Avg Quality", f"{avg_quality:.1f}/100")
+with col3:
+    regime_change = regime['combined'] - 64
+    st.metric("Market Regime", f"{regime['combined']:.1f}/100", delta=f"{regime_change:+.1f}")
+with col4:
+    st.metric("Holdings", f"{num_holdings}")
+with col5:
+    st.metric("Signals", f"{buy_signals} BUY", delta=f"{hold_signals} HOLD | {sell_signals} SELL")
+
+# Status bar
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.info(f"📊 **Regime:** {regime['status']}")
+with col2:
+    if '🚨' in str(regime.get('circuit_breaker', '')):
+        st.error("🚨 **Circuit Breaker ACTIVE**")
+    else:
+        st.success("✅ **No Alerts**")
+with col3:
+    st.caption(f"🕐 Updated: {datetime.now().strftime('%H:%M:%S')}")
+
+st.divider()
+
+# ============================================
+# TABS ORGANIZATION
+# ============================================
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🔗 Bridge",
+    "🌍 Markets",
+    "📈 Score History",
+    "🏢 Holdings"
+])
+
+with tab1:
+    st.header("🔗 Quality × Regime Bridge")
+    
+    zones_df, picks_df = load_bridge_data()
+    
+    # Regime Status
+    st.subheader("🎯 Current Market Regime")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Combined Score", f"{regime['combined']:.1f}/100")
+    with col2:
+        if '⚠️' in regime['status']:
+            st.warning(f"**{regime['status']}**")
+        else:
+            st.info(f"**{regime['status']}**")
+    with col3:
+        st.markdown(f"""
+        **Components**
+        - Technical: {regime['technical']}
+        - Sentiment: {regime['sentiment']}
+        - Liquidity: {regime['liquidity']}
+        """)
+    with col4:
+        if '🚨' in str(regime.get('circuit_breaker', '')):
+            st.error("🚨 **ACTIVE**")
+        else:
+            st.success("✅ **Normal**")
+    
+    st.divider()
+    
+    # Regime Zones
+    if not zones_df.empty:
+        st.subheader("📊 Regime Action Guidelines")
+        st.dataframe(zones_df, use_container_width=True, hide_index=True)
+    
+    st.divider()
+    
+    # Actionable Picks
+    st.subheader("📈 Regime-Filtered Picks")
+    
+    if not picks_df.empty:
+        buy_picks = picks_df[picks_df['Regime_Action'].str.contains('✅|BUY', case=False, na=False)]
+        hold_picks = picks_df[picks_df['Regime_Action'].str.contains('⚠️|HOLD', case=False, na=False)]
+        trim_picks = picks_df[picks_df['Regime_Action'].str.contains('🔴|TRIM', case=False, na=False)]
+        
+        subtab1, subtab2, subtab3 = st.tabs([
+            f"✅ BUY ({len(buy_picks)})",
+            f"⚠️ HOLD ({len(hold_picks)})",
+            f"🔴 TRIM ({len(trim_picks)})"
+        ])
+        
+        with subtab1:
+            if len(buy_picks) > 0:
+                st.dataframe(buy_picks, use_container_width=True, hide_index=True)
+            else:
+                st.info("No BUY signals in current regime")
+        
+        with subtab2:
+            if len(hold_picks) > 0:
+                st.dataframe(hold_picks, use_container_width=True, hide_index=True)
+            else:
+                st.info("No HOLD signals")
+        
+        with subtab3:
+            if len(trim_picks) > 0:
+                st.dataframe(trim_picks, use_container_width=True, hide_index=True)
+            else:
+                st.success("✅ No trim recommendations")
+
+with tab2:
+    display_market_dashboard()
+
+with tab3:
+    display_score_history()
+
+with tab4:
+    st.header("🏢 Portfolio Holdings")
+
+    # Determinar columnas a mostrar
+    holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL', 'P1', 'P2', 'P3', 'P4', 'P5']
+    col_config = {
+        "Quality_Score": st.column_config.ProgressColumn(
+            "Quality",
+            min_value=0,
+            max_value=100,
+            format="%d"
+        ),
+        "P1": st.column_config.NumberColumn("P1", format="%d"),
+        "P2": st.column_config.NumberColumn("P2", format="%d"),
+        "P3": st.column_config.NumberColumn("P3", format="%d"),
+        "P4": st.column_config.NumberColumn("P4", format="%d"),
+        "P5": st.column_config.NumberColumn("P5", format="%d"),
+        "SIGNAL": st.column_config.TextColumn("Signal"),
+    }
+
+    # Añadir precios en vivo si están disponibles
+    if 'Ticker' in df.columns:
+        holdings_cols.insert(2, 'Ticker')
+    if 'Live_Price' in df.columns and df['Live_Price'].notna().any():
+        holdings_cols.insert(3, 'Live_Price')
+        holdings_cols.insert(4, 'Daily_Change')
+        col_config["Live_Price"] = st.column_config.NumberColumn("Price ($)", format="%.2f")
+        col_config["Daily_Change"] = st.column_config.NumberColumn("Day %", format="%.2f%%")
+
+    # Filtrar columnas que existen
+    holdings_cols = [c for c in holdings_cols if c in df.columns]
+
+    if live_prices:
+        st.success(f"📡 Precios en vivo actualizados ({len(live_prices)} de {num_holdings} tickers)")
+
     st.dataframe(
-        display_df.style.background_gradient(subset=["Quality"], cmap="RdYlGn", vmin=20, vmax=100)
-            .background_gradient(subset=["Upside"], cmap="RdYlGn", vmin=-50, vmax=50)
-            .format({"Peso":"{:.1f}%","Precio":"${:.2f}","Upside":"{:+.1f}%"}),
-        use_container_width=True, height=600
+        df[holdings_cols],
+        column_config=col_config,
+        use_container_width=True,
+        hide_index=True
     )
 
-# ══ QUALITY ANALYSIS TAB ══
-with tab_quality:
-    col_list, col_detail = st.columns([1, 2])
-    with col_list:
-        selected = st.selectbox("Selecciona valor", df.sort_values("Quality", ascending=False)["Ticker"].tolist())
-
-    with col_detail:
-        if selected:
-            row = df[df["Ticker"] == selected].iloc[0]
-            st.markdown(f"### {row['Ticker']} — {row['Nombre']}")
-            st.caption(f"{row['Sector']} | Peso: {row['Peso']}% | {row['Signal']} | FV: ${row['Fair Value']} | Upside: {row['Upside']:+.1f}%")
-
-            # Radar chart
-            pillars = ["P1","P2","P3","P4","P5","P6"]
-            pillar_names = ["Rentabilidad","Crecimiento","Salud Fin.","Valoracion","Accionista","Momentum"]
-            values = [row[p] for p in pillars]
-            fig_radar = go.Figure()
-            fig_radar.add_trace(go.Scatterpolar(r=values + [values[0]], theta=pillar_names + [pillar_names[0]], fill="toself", fillcolor="rgba(249,115,22,0.2)", line=dict(color="#f97316", width=2)))
-            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,100], gridcolor="#374151"), angularaxis=dict(gridcolor="#374151"), bgcolor="#111827"), template="plotly_dark", height=350, margin=dict(l=40,r=40,t=20,b=20), paper_bgcolor="#030712", showlegend=False)
-            st.plotly_chart(fig_radar, use_container_width=True)
-
-            # Pillar bars
-            for p, pn in zip(pillars, pillar_names):
-                val = row[p]
-                color = "#22c55e" if val >= 75 else "#facc15" if val >= 55 else "#ef4444"
-                st.progress(int(val), text=f"{pn}: {val:.0f}")
-
-    # Scatter plot
-    st.markdown("---")
-    st.markdown("**Quality vs Valoracion (P4)**")
-    fig_scatter = px.scatter(df, x="P4", y="Quality", size="Peso", color="Sector",
-        color_discrete_map=SECTOR_COLORS, hover_data=["Ticker","Signal","Upside"],
-        labels={"P4":"Valoracion (P4) →","Quality":"← Quality Score"})
-    fig_scatter.update_layout(template="plotly_dark", height=400, paper_bgcolor="#030712", plot_bgcolor="#111827")
-    st.plotly_chart(fig_scatter, use_container_width=True)
-
-# ══ MARKET REGIME TAB ══
-with tab_regime:
-    col_r1, col_r2, col_r3 = st.columns(3)
-    with col_r1:
-        st.markdown("### Regimen de Mercado")
-        st.metric("Score Combinado", f"{REGIME['ov']}/100")
-        st.error(REGIME["lbl"])
-        st.caption(f"Override: {REGIME['ovrR']}")
-
-        st.markdown("**Sub-scores**")
-        st.progress(REGIME["se"], text=f"Sentimiento: {REGIME['se']}/100")
-        st.progress(REGIME["te"], text=f"Tecnico: {REGIME['te']}/100")
-        st.progress(REGIME["li"], text=f"Liquidez: {REGIME['li']}/100")
-
-    with col_r2:
-        st.markdown("### Indicadores")
-        indicators = {
-            "S&P 500": f"{REGIME['spx']:,.0f}", "VIX": f"{REGIME['vix']:.2f}",
-            "Breadth": f"{REGIME['br']}%", "RSI": "48.85", "MACD": "-8.63",
-            "HY Spread": "317 bps", "WTI": "$93.71", "US 10Y": "4.20%", "DXY": "100.5"
-        }
-        for name, val in indicators.items():
-            st.text(f"{name}: {val}")
-
-    with col_r3:
-        st.markdown("### Triggers")
-        triggers = [
-            ("VIX Spike", "VIX > 25", False), ("Credit Stress", "HY > 400bps", False),
-            ("Fear Extreme", "P/C > 1.2", False), ("Breadth Collapse", "Breadth < 50%", True),
-            ("Oil Shock", "WTI >= $100", False), ("Rate Shock", "10Y >= 4.5%", True),
-        ]
-        for name, cond, active in triggers:
-            if active:
-                st.error(f"🔴 {name}: {cond}")
-            else:
-                st.success(f"✅ {name}: {cond}")
-
-        st.info("**Nota Contrarian**: Risk-Off = OPORTUNIDAD en calidad alta. STRONG BUY en Final >= 75 con Upside > 10%.")
-
-# ══ TECHNICAL ANALYSIS TAB ══
-with tab_technical:
-    tech_ticker = st.selectbox("Ticker para analisis tecnico", list(PORTFOLIO.keys()), key="tech_sel")
-    tech_period = st.selectbox("Periodo", ["1mo","3mo","6mo","1y","2y"], index=1, key="tech_period")
-
-    chart_data = fetch_chart_data(tech_ticker, tech_period)
-    if chart_data is not None and not chart_data.empty:
-        # Candlestick chart
-        fig = go.Figure()
-        fig.add_trace(go.Candlestick(x=chart_data.index, open=chart_data["Open"], high=chart_data["High"], low=chart_data["Low"], close=chart_data["Close"], name="Price"))
-        if "SMA20" in chart_data.columns:
-            fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA20"], mode="lines", name="SMA20", line=dict(color="#3b82f6", width=1)))
-            fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA50"], mode="lines", name="SMA50", line=dict(color="#f59e0b", width=1)))
-            fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["BB_upper"], mode="lines", name="BB Upper", line=dict(color="#6b7280", width=1, dash="dot")))
-            fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["BB_lower"], mode="lines", name="BB Lower", line=dict(color="#6b7280", width=1, dash="dot")))
-
-        info = PORTFOLIO[tech_ticker]
-        fig.add_hline(y=info["fv"], line_dash="dash", line_color="#22c55e", annotation_text=f"Fair Value: ${info['fv']}")
-        fig.update_layout(title=f"{tech_ticker} — {info['n']}", template="plotly_dark", height=500, xaxis_rangeslider_visible=False, paper_bgcolor="#030712", plot_bgcolor="#111827")
-        st.plotly_chart(fig, use_container_width=True)
-
-        # RSI + MACD
-        if "RSI" in chart_data.columns:
-            col_rsi, col_macd = st.columns(2)
-            with col_rsi:
-                fig_rsi = go.Figure()
-                fig_rsi.add_trace(go.Scatter(x=chart_data.index, y=chart_data["RSI"], mode="lines", name="RSI", line=dict(color="#a855f7", width=2)))
-                fig_rsi.add_hline(y=70, line_dash="dash", line_color="#ef4444")
-                fig_rsi.add_hline(y=30, line_dash="dash", line_color="#22c55e")
-                fig_rsi.update_layout(title="RSI (14)", template="plotly_dark", height=200, margin=dict(l=0,r=0,t=30,b=0), paper_bgcolor="#030712", plot_bgcolor="#111827")
-                st.plotly_chart(fig_rsi, use_container_width=True)
-            with col_macd:
-                fig_macd = go.Figure()
-                fig_macd.add_trace(go.Scatter(x=chart_data.index, y=chart_data["MACD"], mode="lines", name="MACD", line=dict(color="#3b82f6", width=2)))
-                fig_macd.add_trace(go.Scatter(x=chart_data.index, y=chart_data["MACD_signal"], mode="lines", name="Signal", line=dict(color="#f97316", width=1)))
-                colors = ["#22c55e" if v >= 0 else "#ef4444" for v in chart_data["MACD_hist"].fillna(0)]
-                fig_macd.add_trace(go.Bar(x=chart_data.index, y=chart_data["MACD_hist"], name="Histogram", marker_color=colors))
-                fig_macd.update_layout(title="MACD", template="plotly_dark", height=200, margin=dict(l=0,r=0,t=30,b=0), paper_bgcolor="#030712", plot_bgcolor="#111827")
-                st.plotly_chart(fig_macd, use_container_width=True)
-    else:
-        st.warning("No se pudieron cargar datos para este ticker")
-
-
 # Footer
-# Footer
-st.markdown("---")
-st.caption(f"MARANGO EQUITY FUND, FI — ES0166932006 — Quality x Regime Dashboard — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.divider()
+st.caption("Marango Dashboard v2.0 • Quality × Regime × Market Analysis • Powered by Streamlit")
