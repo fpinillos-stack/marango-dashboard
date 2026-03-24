@@ -592,7 +592,13 @@ def get_stock_summary(ticker_symbol):
 def analyze_with_claude(ticker_symbol, stock_data, b1_score=None, signal=None):
     """Run AI analysis using Claude API"""
     try:
-        api_key = st.secrets.get("ANTHROPIC_API_KEY", os.getenv("ANTHROPIC_API_KEY"))
+        api_key = None
+        try:
+            api_key = st.secrets.get("ANTHROPIC_API_KEY", None)
+        except Exception:
+            pass
+        if not api_key:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             return {"error": "API key not configured"}
 
@@ -772,43 +778,25 @@ def display_bridge_tab():
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.markdown(f"""
-        <div style="padding: 1.5rem; background: rgba(15, 15, 25, 0.8);
-                    border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.75rem;
-                    backdrop-filter: blur(12px);">
-            <div style="color: #9ca3af; font-size: 0.75rem; text-transform: uppercase;
-                        letter-spacing: 0.1em; margin-bottom: 1rem;">Status</div>
-            <div style="color: #f97316; font-family: 'JetBrains Mono', monospace;
-                        font-size: 1.5rem; font-weight: 700; margin-bottom: 2rem;">
-                {regime['status']}
-            </div>
+        st.markdown("**STATUS**")
+        st.subheader(regime['status'])
 
-            <div style="font-size: 0.85rem; color: #e5e7eb;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                    <span style="color: #9ca3af;">Technical</span>
-                    <span style="color: #f97316; font-family: 'JetBrains Mono';">{regime['technical']:.0f}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                    <span style="color: #9ca3af;">Sentiment</span>
-                    <span style="color: #06b6d4; font-family: 'JetBrains Mono';">{regime['sentiment']:.0f}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                    <span style="color: #9ca3af;">Liquidity</span>
-                    <span style="color: #10b981; font-family: 'JetBrains Mono';">{regime['liquidity']:.0f}</span>
-                </div>
-            </div>
+        st.markdown("")
 
-            <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05);">
-                <div style="color: #9ca3af; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.5rem;">
-                    Circuit Breaker
-                </div>
-                <div style="color: {'#ef4444' if '🚨' in str(regime.get('circuit_breaker', '')) else '#10b981'};
-                            font-family: 'JetBrains Mono';">
-                    {'ACTIVE' if '🚨' in str(regime.get('circuit_breaker', '')) else 'NORMAL'}
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        sub1, sub2, sub3 = st.columns(3)
+        with sub1:
+            st.metric("Technical", f"{regime['technical']:.0f}")
+        with sub2:
+            st.metric("Sentiment", f"{regime['sentiment']:.0f}")
+        with sub3:
+            st.metric("Liquidity", f"{regime['liquidity']:.0f}")
+
+        st.markdown("")
+
+        cb_active = '🚨' in str(regime.get('circuit_breaker', ''))
+        cb_label = "CIRCUIT BREAKER"
+        cb_value = "🔴 ACTIVE" if cb_active else "🟢 NORMAL"
+        st.metric(cb_label, cb_value)
 
     st.divider()
 
@@ -1131,7 +1119,14 @@ def display_ai_tab():
     st.markdown("<h2>AI ANALYSIS — POWERED BY CLAUDE</h2>", unsafe_allow_html=True)
 
     # Check API availability
-    api_key = st.secrets.get("ANTHROPIC_API_KEY", os.getenv("ANTHROPIC_API_KEY")) if ANTHROPIC_AVAILABLE else None
+    api_key = None
+    if ANTHROPIC_AVAILABLE:
+        try:
+            api_key = st.secrets.get("ANTHROPIC_API_KEY", None)
+        except Exception:
+            pass
+        if not api_key:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
 
     if not ANTHROPIC_AVAILABLE:
         st.warning("Install Anthropic SDK: `pip install anthropic`")
@@ -1354,19 +1349,39 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 with tab1:
-    display_bridge_tab()
+    try:
+        display_bridge_tab()
+    except Exception as e:
+        st.error(f"Bridge tab error: {str(e)}")
+        st.code(traceback.format_exc())
 
 with tab2:
-    display_markets_tab()
+    try:
+        display_markets_tab()
+    except Exception as e:
+        st.error(f"Markets tab error: {str(e)}")
+        st.code(traceback.format_exc())
 
 with tab3:
-    display_scores_tab()
+    try:
+        display_scores_tab()
+    except Exception as e:
+        st.error(f"Scores tab error: {str(e)}")
+        st.code(traceback.format_exc())
 
 with tab4:
-    display_holdings_tab()
+    try:
+        display_holdings_tab()
+    except Exception as e:
+        st.error(f"Holdings tab error: {str(e)}")
+        st.code(traceback.format_exc())
 
 with tab5:
-    display_ai_tab()
+    try:
+        display_ai_tab()
+    except Exception as e:
+        st.error(f"AI tab error: {str(e)}")
+        st.code(traceback.format_exc())
 
 # Footer
 st.divider()
