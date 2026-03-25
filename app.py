@@ -1615,6 +1615,451 @@ def display_regime_tab():
     """, unsafe_allow_html=True)
 
 
+# ============================================
+# SECTOR ETF MAPPING FOR MOMENTUM
+# ============================================
+
+SECTOR_ETFS = {
+    'Information Technology': 'XLK',
+    'Health Care': 'XLV',
+    'Financials': 'XLF',
+    'Consumer Discretionary': 'XLY',
+    'Communication Services': 'XLC',
+    'Industrials': 'XLI',
+    'Consumer Staples': 'XLP',
+    'Energy': 'XLE',
+    'Utilities': 'XLU',
+    'Materials': 'XLB',
+    'Real Estate': 'XLRE'
+}
+
+@st.cache_data(ttl=3600)
+def get_sector_momentum():
+    """Calculate sector relative strength vs S&P 500 over multiple timeframes"""
+    try:
+        # Download SPY + all sector ETFs
+        tickers = ['SPY'] + list(SECTOR_ETFS.values())
+        data = yf.download(tickers, period='1y', progress=False)['Close']
+
+        if data.empty:
+            return None
+
+        results = []
+        spy = data['SPY']
+
+        for sector, etf in SECTOR_ETFS.items():
+            if etf not in data.columns:
+                continue
+            etf_data = data[etf]
+
+            # Calculate returns over different periods
+            def calc_return(series, days):
+                if len(series) < days:
+                    return None
+                return ((series.iloc[-1] / series.iloc[-days]) - 1) * 100
+
+            ret_1m = calc_return(etf_data, 21)
+            ret_3m = calc_return(etf_data, 63)
+            ret_6m = calc_return(etf_data, 126)
+            ret_12m = calc_return(etf_data, 252)
+
+            spy_1m = calc_return(spy, 21)
+            spy_3m = calc_return(spy, 63)
+            spy_6m = calc_return(spy, 126)
+            spy_12m = calc_return(spy, 252)
+
+            # Relative strength = sector return - SPY return
+            rel_1m = (ret_1m - spy_1m) if ret_1m is not None and spy_1m is not None else None
+            rel_3m = (ret_3m - spy_3m) if ret_3m is not None and spy_3m is not None else None
+            rel_6m = (ret_6m - spy_6m) if ret_6m is not None and spy_6m is not None else None
+            rel_12m = (ret_12m - spy_12m) if ret_12m is not None and spy_12m is not None else None
+
+            # Momentum score: weighted average of relative strength
+            scores = []
+            if rel_3m is not None:
+                scores.append(rel_3m * 0.40)
+            if rel_6m is not None:
+                scores.append(rel_6m * 0.35)
+            if rel_12m is not None:
+                scores.append(rel_12m * 0.25)
+            momentum_score = sum(scores) if scores else 0
+
+            # Sparkline data (last 60 trading days of relative performance)
+            if len(etf_data) > 60 and len(spy) > 60:
+                rel_perf = (etf_data / spy).iloc[-60:].tolist()
+            else:
+                rel_perf = []
+
+            results.append({
+                'sector': sector,
+                'etf': etf,
+                'ret_1m': ret_1m,
+                'ret_3m': ret_3m,
+                'ret_6m': ret_6m,
+                'ret_12m': ret_12m,
+                'rel_1m': rel_1m,
+                'rel_3m': rel_3m,
+                'rel_6m': rel_6m,
+                'rel_12m': rel_12m,
+                'momentum_score': momentum_score,
+                'sparkline': rel_perf
+            })
+
+        return sorted(results, key=lambda x: x['momentum_score'], reverse=True)
+
+    except Exception as e:
+        st.error(f"Error loading sector momentum: {str(e)}")
+        return None
+
+
+def display_momentum_tab():
+    """Industry Momentum — Sector relative strength vs S&P 500"""
+    st.markdown("<h2>INDUSTRY MOMENTUM — BLOQUE 4</h2>", unsafe_allow_html=True)
+    st.caption("Sector relative strength vs S&P 500 | Tailwinds & Headwinds")
+
+    momentum = get_sector_momentum()
+    if momentum is None:
+        st.info("Loading sector momentum data...")
+        return
+
+    # Portfolio sector weights from B1
+    b1_df = load_bloque1()
+    sector_counts = {}
+    if not b1_df.empty and 'GICS Sector' in b1_df.columns:
+        sector_counts = b1_df['GICS Sector'].value_counts().to_dict()
+    total_holdings = sum(sector_counts.values()) if sector_counts else 1
+
+    # Summary cards: Tailwinds vs Headwinds
+    tailwinds = [m for m in momentum if m['momentum_score'] > 2]
+    headwinds = [m for m in momentum if m['momentum_score'] < -2]
+
+    col_tw, col_hw = st.columns(2)
+    with col_tw:
+        tw_text = ', '.join([m['sector'] for m in tailwinds]) if tailwinds else 'None'
+        st.markdown(f"""
+        <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3);
+                    border-radius:8px; padding:1rem; margin-bottom:1rem;">
+            <div style="color:#10b981; font-weight:700; font-size:1rem; margin-bottom:0.3rem;">TAILWINDS ({len(tailwinds)})</div>
+            <div style="color:#e5e7eb; font-size:0.9rem;">{tw_text}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_hw:
+        hw_text = ', '.join([m['sector'] for m in headwinds]) if headwinds else 'None'
+        st.markdown(f"""
+        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3);
+                    border-radius:8px; padding:1rem; margin-bottom:1rem;">
+            <div style="color:#ef4444; font-weight:700; font-size:1rem; margin-bottom:0.3rem;">HEADWINDS ({len(headwinds)})</div>
+            <div style="color:#e5e7eb; font-size:0.9rem;">{hw_text}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Momentum bar chart
+    sectors = [m['sector'] for m in momentum]
+    scores = [m['momentum_score'] for m in momentum]
+    colors = ['#10b981' if s > 2 else '#ef4444' if s < -2 else '#f59e0b' for s in scores]
+
+    fig = go.Figure(go.Bar(
+        y=sectors,
+        x=scores,
+        orientation='h',
+        marker=dict(color=colors),
+        text=[f"{s:+.1f}" for s in scores],
+        textposition='outside',
+        textfont=dict(family='JetBrains Mono', size=11)
+    ))
+    fig.add_vline(x=0, line_color='rgba(255,255,255,0.2)', line_width=1)
+    fig.update_layout(
+        template='plotly_dark', height=400,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='JetBrains Mono', color='#e5e7eb'),
+        margin=dict(l=10, r=60, t=30, b=10),
+        xaxis=dict(title='Momentum Score (Relative Strength)', gridcolor='rgba(255,255,255,0.05)'),
+        yaxis=dict(autorange='reversed'),
+        showlegend=False
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # Detailed table
+    st.markdown("<h3>SECTOR DETAIL</h3>", unsafe_allow_html=True)
+
+    for m in momentum:
+        sector = m['sector']
+        score = m['momentum_score']
+        holdings = sector_counts.get(sector, 0)
+        weight = (holdings / total_holdings * 100) if total_holdings > 0 else 0
+
+        if score > 5:
+            signal = '🟢 STRONG TAILWIND'
+            sig_color = '#10b981'
+        elif score > 2:
+            signal = '🟢 TAILWIND'
+            sig_color = '#10b981'
+        elif score > -2:
+            signal = '⚠️ NEUTRAL'
+            sig_color = '#f59e0b'
+        elif score > -5:
+            signal = '🔴 HEADWIND'
+            sig_color = '#ef4444'
+        else:
+            signal = '🔴 STRONG HEADWIND'
+            sig_color = '#ef4444'
+
+        def fmt_ret(val):
+            if val is None:
+                return '—'
+            color = '#10b981' if val > 0 else '#ef4444'
+            return f"<span style='color:{color};font-family:JetBrains Mono;'>{val:+.1f}%</span>"
+
+        st.markdown(f"""
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0;
+                    border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.88rem;">
+            <div style="flex:2;">
+                <span style="color:#e5e7eb; font-weight:600;">{sector}</span>
+                <span style="color:#6b7280; font-size:0.8rem; margin-left:0.5rem;">({m['etf']}) · {holdings} holdings · {weight:.0f}%</span>
+            </div>
+            <div style="flex:3; display:flex; gap:1rem; justify-content:center;">
+                <span style="color:#9ca3af; font-size:0.8rem;">1M:</span>{fmt_ret(m['rel_1m'])}
+                <span style="color:#9ca3af; font-size:0.8rem;">3M:</span>{fmt_ret(m['rel_3m'])}
+                <span style="color:#9ca3af; font-size:0.8rem;">6M:</span>{fmt_ret(m['rel_6m'])}
+                <span style="color:#9ca3af; font-size:0.8rem;">12M:</span>{fmt_ret(m['rel_12m'])}
+            </div>
+            <div style="flex:1; text-align:right;">
+                <span style="color:{sig_color}; font-weight:600;">{signal}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def display_analytics_tab():
+    """Portfolio Analytics — Concentration, exposure, diversification"""
+    st.markdown("<h2>PORTFOLIO ANALYTICS</h2>", unsafe_allow_html=True)
+
+    df = load_bloque1()
+    if df.empty:
+        st.info("No portfolio data available")
+        return
+
+    total = len(df)
+
+    # ── SECTOR CONCENTRATION ──────────────────────────────────
+    col_pie, col_bars = st.columns([1, 1])
+
+    with col_pie:
+        st.markdown("<h3>SECTOR ALLOCATION</h3>", unsafe_allow_html=True)
+        sector_counts = df['GICS Sector'].value_counts()
+        fig = px.pie(
+            values=sector_counts.values,
+            names=sector_counts.index,
+            color_discrete_sequence=['#f97316', '#06b6d4', '#10b981', '#a855f7', '#ec4899',
+                                     '#f59e0b', '#14b8a6', '#6366f1', '#ef4444', '#84cc16', '#9ca3af']
+        )
+        fig.update_layout(
+            template='plotly_dark', height=380,
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            margin=dict(l=10, r=10, t=10, b=10),
+            legend=dict(font=dict(size=10))
+        )
+        fig.update_traces(textinfo='label+percent', textfont_size=10)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_bars:
+        st.markdown("<h3>QUALITY BY SECTOR</h3>", unsafe_allow_html=True)
+        sector_avg = df.groupby('GICS Sector')['Quality_Score'].mean().sort_values(ascending=True)
+        colors = ['#10b981' if v >= 70 else '#06b6d4' if v >= 60 else '#f59e0b' if v >= 50 else '#ef4444' for v in sector_avg.values]
+        fig = go.Figure(go.Bar(
+            y=sector_avg.index,
+            x=sector_avg.values,
+            orientation='h',
+            marker=dict(color=colors),
+            text=[f"{v:.0f}" for v in sector_avg.values],
+            textposition='outside',
+            textfont=dict(family='JetBrains Mono', size=11)
+        ))
+        fig.update_layout(
+            template='plotly_dark', height=380,
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            margin=dict(l=10, r=50, t=10, b=10),
+            xaxis=dict(range=[0, 100], gridcolor='rgba(255,255,255,0.05)'),
+            showlegend=False
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── CONCENTRATION METRICS ──────────────────────────────────
+    st.markdown("<h3>CONCENTRATION ANALYSIS</h3>", unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    # Top sector weight
+    top_sector = sector_counts.index[0]
+    top_sector_pct = sector_counts.values[0] / total * 100
+
+    # Herfindahl index (sector concentration)
+    weights = (sector_counts.values / total)
+    hhi = (weights ** 2).sum() * 10000  # Scale to 0-10000
+
+    # Effective number of sectors
+    eff_sectors = 1 / (weights ** 2).sum() if (weights ** 2).sum() > 0 else 0
+
+    with col1:
+        st.metric("Total Holdings", f"{total}")
+    with col2:
+        st.metric("Sectors", f"{len(sector_counts)}")
+    with col3:
+        st.metric("Top Sector", f"{top_sector}", delta=f"{top_sector_pct:.0f}%")
+    with col4:
+        hhi_label = "High" if hhi > 2500 else "Moderate" if hhi > 1500 else "Low"
+        st.metric("Concentration (HHI)", f"{hhi:.0f}", delta=hhi_label)
+
+    st.divider()
+
+    # ── SIGNAL DISTRIBUTION ────────────────────────────────────
+    st.markdown("<h3>SIGNAL BREAKDOWN</h3>", unsafe_allow_html=True)
+
+    if 'SIGNAL' in df.columns:
+        col_sig, col_quality = st.columns(2)
+
+        with col_sig:
+            # Signal by sector heatmap-style
+            signal_sector = pd.crosstab(df['GICS Sector'], df['SIGNAL'])
+            for sig_col in signal_sector.columns:
+                signal_sector[sig_col] = signal_sector[sig_col]
+
+            st.dataframe(
+                signal_sector,
+                use_container_width=True
+            )
+
+        with col_quality:
+            # Quality distribution histogram
+            fig = go.Figure()
+            fig.add_trace(go.Histogram(
+                x=df['Quality_Score'], nbinsx=15,
+                marker=dict(color='#f97316'),
+                name='All'
+            ))
+            fig.add_vline(x=df['Quality_Score'].mean(), line_dash="dash", line_color="#06b6d4",
+                          annotation_text=f"Avg: {df['Quality_Score'].mean():.1f}")
+            fig.add_vline(x=df['Quality_Score'].median(), line_dash="dot", line_color="#10b981",
+                          annotation_text=f"Median: {df['Quality_Score'].median():.1f}")
+            fig.update_layout(
+                template='plotly_dark', height=300,
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                xaxis_title="Quality Score", yaxis_title="Count",
+                margin=dict(l=0, r=0, t=30, b=40),
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── TOP & BOTTOM HOLDINGS ──────────────────────────────────
+    st.markdown("<h3>TOP 10 vs BOTTOM 10</h3>", unsafe_allow_html=True)
+
+    col_top, col_bot = st.columns(2)
+
+    with col_top:
+        st.markdown("**TOP 10 — Highest Quality**")
+        top10 = df.nlargest(10, 'Quality_Score')
+        for i, (_, row) in enumerate(top10.iterrows(), 1):
+            ticker = safe_str(row.get('Ticker', ''))
+            company = safe_str(row.get('Company', ''), 'N/A')
+            score = row.get('Quality_Score', 0)
+            signal = safe_str(row.get('SIGNAL', ''))
+            st.markdown(f"""
+            <div style="display:flex; justify-content:space-between; padding:0.3rem 0;
+                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem;">
+                <span style="color:#6b7280; width:1.5rem;">{i}.</span>
+                <span style="color:#f97316; font-family:JetBrains Mono; width:4rem;">{ticker}</span>
+                <span style="color:#e5e7eb; flex:1;">{company[:22]}</span>
+                <span style="color:#10b981; font-family:JetBrains Mono; font-weight:600;">{score:.0f}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with col_bot:
+        st.markdown("**BOTTOM 10 — Review Required**")
+        bot10 = df.nsmallest(10, 'Quality_Score')
+        for i, (_, row) in enumerate(bot10.iterrows(), 1):
+            ticker = safe_str(row.get('Ticker', ''))
+            company = safe_str(row.get('Company', ''), 'N/A')
+            score = row.get('Quality_Score', 0)
+            signal = safe_str(row.get('SIGNAL', ''))
+            st.markdown(f"""
+            <div style="display:flex; justify-content:space-between; padding:0.3rem 0;
+                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem;">
+                <span style="color:#6b7280; width:1.5rem;">{i}.</span>
+                <span style="color:#f97316; font-family:JetBrains Mono; width:4rem;">{ticker}</span>
+                <span style="color:#e5e7eb; flex:1;">{company[:22]}</span>
+                <span style="color:#ef4444; font-family:JetBrains Mono; font-weight:600;">{score:.0f}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── PILLAR AVERAGES ────────────────────────────────────────
+    st.markdown("<h3>PORTFOLIO PILLAR AVERAGES</h3>", unsafe_allow_html=True)
+
+    pillar_names = {'P1': 'Profitability', 'P2': 'Growth', 'P3': 'Fin. Health',
+                    'P4': 'Cash Flow', 'P5': 'Valuation', 'P6': 'Shareholder Ret.'}
+    pillar_cols = [p for p in ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] if p in df.columns]
+
+    if pillar_cols:
+        avgs = [df[p].mean() for p in pillar_cols]
+        labels = [pillar_names.get(p, p) for p in pillar_cols]
+        # Close polygon
+        avgs_r = avgs + [avgs[0]]
+        labels_r = labels + [labels[0]]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatterpolar(
+            r=avgs_r, theta=labels_r,
+            fill='toself',
+            fillcolor='rgba(249,115,22,0.15)',
+            line=dict(color='#f97316', width=2.5),
+            marker=dict(size=8, color='#f97316'),
+            name='Portfolio Avg'
+        ))
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 100],
+                               gridcolor='rgba(255,255,255,0.08)',
+                               tickvals=[20, 40, 60, 80, 100],
+                               tickfont=dict(size=9, color='#6b7280')),
+                angularaxis=dict(gridcolor='rgba(255,255,255,0.1)',
+                                tickfont=dict(size=11, color='#e5e7eb')),
+                bgcolor='rgba(0,0,0,0)'
+            ),
+            template='plotly_dark', height=400,
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            margin=dict(l=60, r=60, t=40, b=40),
+            showlegend=False
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Pillar stats
+        pcols = st.columns(len(pillar_cols))
+        for i, p in enumerate(pillar_cols):
+            with pcols[i]:
+                avg = df[p].mean()
+                mn = df[p].min()
+                mx = df[p].max()
+                color = '#10b981' if avg >= 65 else '#06b6d4' if avg >= 50 else '#f59e0b' if avg >= 35 else '#ef4444'
+                st.markdown(f"""
+                <div style="text-align:center;">
+                    <div style="color:#9ca3af; font-size:0.75rem;">{pillar_names.get(p, p)}</div>
+                    <div style="color:{color}; font-family:JetBrains Mono; font-size:1.3rem; font-weight:700;">{avg:.0f}</div>
+                    <div style="color:#6b7280; font-size:0.7rem;">{mn:.0f} — {mx:.0f}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+
 def display_holdings_tab():
     """Holdings with sparklines and color-coded changes"""
     st.markdown("<h2>PORTFOLIO HOLDINGS</h2>", unsafe_allow_html=True)
@@ -2057,12 +2502,14 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "BRIDGE",
     "MARKETS",
     "REGIME",
+    "MOMENTUM",
     "SCORES",
-    "HOLDINGS"
+    "HOLDINGS",
+    "ANALYTICS"
 ])
 
 with tab1:
@@ -2088,16 +2535,30 @@ with tab3:
 
 with tab4:
     try:
+        display_momentum_tab()
+    except Exception as e:
+        st.error(f"Momentum tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab5:
+    try:
         display_scores_tab()
     except Exception as e:
         st.error(f"Scores tab error: {str(e)}")
         st.code(traceback.format_exc())
 
-with tab5:
+with tab6:
     try:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab7:
+    try:
+        display_analytics_tab()
+    except Exception as e:
+        st.error(f"Analytics tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
