@@ -702,26 +702,24 @@ def render_kpi_strip():
             df['Live_Price'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('price', None) if isinstance(t, str) else None)
             df['Daily_Change'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('change_pct', 0) if isinstance(t, str) else 0)
 
-    total_value = 18_300_000
     avg_quality = df['Quality_Score'].mean()
     num_holdings = len(df)
-    buy_signals = len(df[df['Quality_Score'] >= 85])
-    hold_signals = len(df[(df['Quality_Score'] >= 70) & (df['Quality_Score'] < 85)])
-    sell_signals = len(df[df['Quality_Score'] < 70])
 
-    avg_daily_change = 0
-    if live_prices and 'Daily_Change' in df.columns:
-        avg_daily_change = df['Daily_Change'].mean()
-        portfolio_change = total_value * (avg_daily_change / 100)
-        delta_str = f"{'+' if portfolio_change >= 0 else ''}&euro;{abs(portfolio_change)/1e3:.0f}K ({avg_daily_change:+.2f}%)"
-        delta_color = "normal" if portfolio_change >= 0 else "inverse"
+    # Use actual SIGNAL column from Excel
+    if 'SIGNAL' in df.columns:
+        buy_signals = len(df[df['SIGNAL'].str.contains('BUY|STRONG BUY', case=False, na=False)])
+        hold_signals = len(df[df['SIGNAL'].str.contains('HOLD', case=False, na=False)])
+        underweight_signals = len(df[df['SIGNAL'].str.contains('UNDERWEIGHT', case=False, na=False)])
+        sell_signals = len(df[df['SIGNAL'].str.contains('SELL', case=False, na=False) & ~df['SIGNAL'].str.contains('BUY', case=False, na=False)])
     else:
-        delta_str = "CONNECTING..."
-        delta_color = "off"
+        buy_signals = len(df[df['Quality_Score'] >= 80])
+        hold_signals = len(df[(df['Quality_Score'] >= 65) & (df['Quality_Score'] < 80)])
+        underweight_signals = 0
+        sell_signals = len(df[df['Quality_Score'] < 65])
 
-    # KPI Cards - Bloomberg style HTML
+    # KPI Cards - Bloomberg style HTML (4 cards, no portfolio value)
     def kpi_card(label, value, delta, delta_positive=True, accent_color="#f97316"):
-        delta_color = "#10b981" if delta_positive else "#ef4444"
+        d_color = "#10b981" if delta_positive else "#ef4444"
         arrow = "&#9650;" if delta_positive else "&#9660;"
         return f"""
         <div style="background:rgba(15,15,25,0.9);border:1px solid rgba(255,255,255,0.05);
@@ -731,19 +729,17 @@ def render_kpi_strip():
                         letter-spacing:0.1em;margin-bottom:0.4rem;font-family:JetBrains Mono;">{label}</div>
             <div style="color:#e5e7eb;font-size:1.4rem;font-weight:700;
                         font-family:JetBrains Mono;margin-bottom:0.3rem;">{value}</div>
-            <div style="color:{delta_color};font-size:0.75rem;font-family:JetBrains Mono;">
+            <div style="color:{d_color};font-size:0.75rem;font-family:JetBrains Mono;">
                 {arrow} {delta}</div>
         </div>"""
 
     regime_ok = regime['combined'] < 60
-    portfolio_positive = live_prices and avg_daily_change >= 0 if live_prices and 'Daily_Change' in df.columns else True
 
-    cards_html = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;">'
-    cards_html += kpi_card("PORTFOLIO", f"&euro;{total_value/1e6:.1f}M", delta_str, portfolio_positive)
-    cards_html += kpi_card("QUALITY", f"{avg_quality:.1f}", "/ 100", avg_quality >= 75, "#06b6d4")
+    cards_html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;">'
+    cards_html += kpi_card("QUALITY AVG", f"{avg_quality:.1f}", "/ 100", avg_quality >= 70, "#06b6d4")
     cards_html += kpi_card("REGIME", f"{regime['combined']:.0f}", f"{regime['combined'] - 60:+.0f} vs neutral", regime_ok, "#10b981" if regime_ok else "#ef4444")
-    cards_html += kpi_card("HOLDINGS", f"{num_holdings}", f"{buy_signals} BUY signals", True, "#06b6d4")
-    cards_html += kpi_card("SIGNALS", f"{buy_signals}B | {hold_signals}H | {sell_signals}S", f"{buy_signals} actionable", buy_signals > 0)
+    cards_html += kpi_card("HOLDINGS", f"{num_holdings}", f"{buy_signals} BUY | {hold_signals} HOLD", True, "#06b6d4")
+    cards_html += kpi_card("SIGNALS", f"{buy_signals}B | {hold_signals}H | {sell_signals}S", f"{underweight_signals} UW | {sell_signals} SELL", sell_signals == 0, "#f97316")
     cards_html += '</div>'
 
     st.markdown(cards_html, unsafe_allow_html=True)
@@ -1004,93 +1000,164 @@ def display_markets_tab():
     st.plotly_chart(fig, use_container_width=True)
 
 def display_scores_tab():
-    """Scores: Quality Score Evolution"""
-    st.markdown("<h2>QUALITY SCORE EVOLUTION</h2>", unsafe_allow_html=True)
+    """Scores: Company-by-company quality breakdown with expandable pillar details"""
+    st.markdown("<h2>QUALITY SCORES — PILLAR BREAKDOWN</h2>", unsafe_allow_html=True)
 
-    history_df = load_score_history()
     b1_df = load_bloque1()
 
-    if history_df.empty or 'Company' not in history_df.columns:
-        st.info("No score history data available")
+    if b1_df.empty:
+        st.info("No scoring data available")
         return
 
-    # Recent changes
-    st.markdown("<h3>RECENT CHANGES</h3>", unsafe_allow_html=True)
+    # Pillar definitions
+    pillar_info = {
+        'P1': {'name': 'Profitability', 'metrics': ['ROE (%)', 'ROIC (%)', 'Net Margin (%)'], 'scores': ['S.ROE', 'S.ROIC', 'S.NM']},
+        'P2': {'name': 'Growth', 'metrics': ['Rev Gr 3Y (%)', 'EPS Gr 3Y (%)', 'Op Lev (x)'], 'scores': ['S.RevGr', 'S.EPSGr', 'S.OpLev']},
+        'P3': {'name': 'Financial Health', 'metrics': ['ND/EBITDA', 'Curr Ratio', 'Int Cov (x)'], 'scores': ['S.Debt', 'S.CR', 'S.IC']},
+        'P4': {'name': 'Cash Flow', 'metrics': ['FCF Mar (%)', 'FCF/NI (x)', 'Capex/Rev (%)'], 'scores': ['S.FCFm', 'S.FCFni', 'S.Capex']},
+        'P5': {'name': 'Valuation', 'metrics': ['Fwd P/E', 'EV/EBITDA', 'P/FCF'], 'scores': ['S.PE', 'S.EVEB', 'S.PFCF']},
+    }
+    if 'P6.Adj' in b1_df.columns:
+        pillar_info['P6'] = {'name': 'Shareholder Return', 'metrics': ['Div Yield (%)', 'Payout (%)', 'Buyback (%)'], 'scores': ['S.DivY', 'S.Payout', 'S.Buyb']}
 
-    try:
-        history_df = history_df.sort_values(['Company', 'Date'])
-        history_df['Score_Change'] = history_df.groupby('Company')['Quality_Score'].diff()
-        recent = history_df[history_df['Date'] == history_df['Date'].max()]
-        significant = recent[abs(recent['Score_Change']) >= 5]
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("UPGRADES", len(significant[significant['Score_Change'] > 0]))
-        with col2:
-            st.metric("DOWNGRADES", len(significant[significant['Score_Change'] < 0]))
-        with col3:
-            st.metric("STABLE", len(recent) - len(significant))
-    except Exception:
-        st.info("Not enough data for recent changes")
-
-    st.divider()
-
-    # Evolution chart
-    st.markdown("<h3>SCORE EVOLUTION (TOP 10)</h3>", unsafe_allow_html=True)
-
-    top_companies = b1_df.nlargest(10, 'Quality_Score')['Company'].tolist()
-    history_filtered = history_df[history_df['Company'].isin(top_companies)]
-
-    if not history_filtered.empty and 'Date' in history_filtered.columns:
-        fig = go.Figure()
-        for company in top_companies:
-            cdata = history_filtered[history_filtered['Company'] == company]
-            if not cdata.empty:
-                fig.add_trace(go.Scatter(x=cdata['Date'], y=cdata['Quality_Score'],
-                                         mode='lines+markers', name=company,
-                                         line=dict(width=2)))
-
-        fig.add_hline(y=85, line_dash="dash", line_color="#10b981", annotation_text="Strong Buy")
-        fig.add_hline(y=70, line_dash="dash", line_color="#06b6d4", annotation_text="Hold")
-
-        fig.update_layout(
-            template='plotly_dark',
-            hovermode='x unified',
-            height=500,
-            yaxis=dict(range=[50, 100]),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
-            xaxis_title="Date",
-            yaxis_title="Quality Score"
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.dataframe(
-            b1_df.nlargest(10, 'Quality_Score')[['Company', 'GICS Sector', 'Quality_Score']],
-            use_container_width=True, hide_index=True
-        )
-
-    st.divider()
-
-    # Score Distribution
+    # Score Distribution chart at top
     st.markdown("<h3>SCORE DISTRIBUTION</h3>", unsafe_allow_html=True)
 
     fig = go.Figure(data=[
         go.Histogram(x=b1_df['Quality_Score'], nbinsx=20, marker=dict(color='#f97316'))
     ])
+    fig.add_vline(x=b1_df['Quality_Score'].mean(), line_dash="dash", line_color="#06b6d4",
+                  annotation_text=f"Avg: {b1_df['Quality_Score'].mean():.1f}")
     fig.update_layout(
-        template='plotly_dark',
-        height=350,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        template='plotly_dark', height=300,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         font=dict(family='JetBrains Mono', color='#e5e7eb'),
-        xaxis_title="Quality Score",
-        yaxis_title="Count",
-        showlegend=False
+        xaxis_title="Quality Score", yaxis_title="Count", showlegend=False,
+        margin=dict(l=0, r=0, t=30, b=40)
     )
     st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # Filter controls
+    st.markdown("<h3>COMPANY SCORES</h3>", unsafe_allow_html=True)
+
+    col_filter1, col_filter2 = st.columns([2, 1])
+    with col_filter1:
+        sort_by = st.selectbox("Sort by", ["Quality Score (High→Low)", "Quality Score (Low→High)", "Company (A→Z)"], label_visibility="collapsed")
+    with col_filter2:
+        signal_filter = st.selectbox("Filter", ["All Signals", "BUY only", "HOLD only", "SELL only"], label_visibility="collapsed")
+
+    # Apply sorting
+    if "High→Low" in sort_by:
+        display_df = b1_df.sort_values('Quality_Score', ascending=False)
+    elif "Low→High" in sort_by:
+        display_df = b1_df.sort_values('Quality_Score', ascending=True)
+    else:
+        display_df = b1_df.sort_values('Company')
+
+    # Apply filter
+    if signal_filter != "All Signals" and 'SIGNAL' in display_df.columns:
+        filter_key = signal_filter.replace(" only", "").strip()
+        display_df = display_df[display_df['SIGNAL'].str.contains(filter_key, case=False, na=False)]
+
+    st.caption(f"Showing {len(display_df)} companies")
+
+    # Company expanders
+    for _, row in display_df.iterrows():
+        company = row.get('Company', 'N/A')
+        sector = row.get('GICS Sector', 'N/A')
+        score = row.get('Quality_Score', 0)
+        signal = row.get('SIGNAL', 'N/A') if 'SIGNAL' in row.index else 'N/A'
+        ticker = row.get('Ticker', '') if 'Ticker' in row.index else ''
+
+        # Color based on score
+        if score >= 80:
+            score_color = "#10b981"
+        elif score >= 65:
+            score_color = "#06b6d4"
+        elif score >= 50:
+            score_color = "#f59e0b"
+        else:
+            score_color = "#ef4444"
+
+        header_text = f"{company}  |  {score:.0f}/100  |  {signal}"
+        if ticker:
+            header_text = f"{ticker} — {company}  |  {score:.0f}/100  |  {signal}"
+
+        with st.expander(header_text):
+            # Top row: score gauge + info
+            col_gauge, col_info = st.columns([1, 2])
+
+            with col_gauge:
+                fig = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=score,
+                    domain={'x': [0, 1], 'y': [0, 1]},
+                    gauge={
+                        'axis': {'range': [0, 100]},
+                        'bar': {'color': score_color},
+                        'steps': [
+                            {'range': [0, 50], 'color': 'rgba(239,68,68,0.15)'},
+                            {'range': [50, 65], 'color': 'rgba(245,158,11,0.15)'},
+                            {'range': [65, 80], 'color': 'rgba(6,182,212,0.15)'},
+                            {'range': [80, 100], 'color': 'rgba(16,185,129,0.15)'}
+                        ]
+                    }
+                ))
+                fig.update_layout(
+                    template='plotly_dark', height=200,
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                    margin=dict(l=20, r=20, t=30, b=0)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col_info:
+                st.markdown(f"**Sector:** {sector}")
+                st.markdown(f"**Signal:** {signal}")
+                if ticker:
+                    st.markdown(f"**Ticker:** {ticker}")
+
+                # Pillar scores bar
+                pillar_cols = [c for c in ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] if c in row.index and pd.notna(row.get(c))]
+                if pillar_cols:
+                    pillar_values = [float(row[p]) for p in pillar_cols]
+                    pillar_names = [f"{p}: {pillar_info.get(p, {}).get('name', p)}" for p in pillar_cols]
+                    colors = ['#10b981' if v >= 15 else '#06b6d4' if v >= 10 else '#f59e0b' if v >= 5 else '#ef4444' for v in pillar_values]
+
+                    fig2 = go.Figure(data=[go.Bar(
+                        x=pillar_names, y=pillar_values,
+                        marker=dict(color=colors),
+                        text=[f"{v:.0f}" for v in pillar_values],
+                        textposition='outside'
+                    )])
+                    fig2.update_layout(
+                        template='plotly_dark', height=200,
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(family='JetBrains Mono', color='#e5e7eb', size=10),
+                        margin=dict(l=0, r=0, t=10, b=40),
+                        yaxis=dict(range=[0, max(pillar_values) * 1.3 if pillar_values else 20]),
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
+
+            # Detailed metrics per pillar
+            st.markdown("---")
+            st.markdown("**PILLAR DETAILS**")
+            pcols = st.columns(len(pillar_info))
+            for i, (pkey, pinfo) in enumerate(pillar_info.items()):
+                with pcols[i]:
+                    p_score = row.get(pkey, 'N/A')
+                    p_display = f"{p_score:.0f}" if isinstance(p_score, (int, float)) and pd.notna(p_score) else "N/A"
+                    st.markdown(f"**{pkey}: {pinfo['name']}**")
+                    st.markdown(f"Score: **{p_display}**")
+                    for metric, score_col in zip(pinfo['metrics'], pinfo['scores']):
+                        val = row.get(metric, None)
+                        sub = row.get(score_col, None)
+                        if val is not None and pd.notna(val):
+                            sub_str = f" (s:{sub:.0f})" if sub is not None and pd.notna(sub) else ""
+                            st.caption(f"{metric}: {val:.1f}{sub_str}")
 
 def display_holdings_tab():
     """Holdings with sparklines and color-coded changes"""
@@ -1192,8 +1259,83 @@ def display_holdings_tab():
                     )
 
 def display_ai_tab():
-    """AI Analysis - Claude Powered"""
+    """AI Analysis - Claude Powered + Portfolio Summary"""
     st.markdown("<h2>AI ANALYSIS — POWERED BY CLAUDE</h2>", unsafe_allow_html=True)
+
+    # Always show portfolio summary first
+    df = load_bloque1()
+    regime = load_regime()
+
+    if not df.empty:
+        st.markdown("<h3>PORTFOLIO SNAPSHOT</h3>", unsafe_allow_html=True)
+
+        # Signal distribution
+        if 'SIGNAL' in df.columns:
+            signal_counts = df['SIGNAL'].value_counts()
+            col_pie, col_summary = st.columns([1, 2])
+
+            with col_pie:
+                fig = px.pie(
+                    values=signal_counts.values,
+                    names=signal_counts.index,
+                    title="SIGNAL DISTRIBUTION",
+                    color_discrete_sequence=['#10b981', '#06b6d4', '#f97316', '#ef4444', '#9ca3af']
+                )
+                fig.update_layout(
+                    template='plotly_dark', height=350,
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(family='JetBrains Mono', color='#e5e7eb')
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col_summary:
+                st.markdown("**REGIME STATUS**")
+                st.markdown(f"Combined Score: **{regime['combined']:.0f}** — {regime['status']}")
+                st.markdown(f"Technical: {regime['technical']:.0f} | Sentiment: {regime['sentiment']:.0f} | Liquidity: {regime['liquidity']:.0f}")
+                st.markdown("")
+                st.markdown("**TOP QUALITY HOLDINGS**")
+                top5 = df.nlargest(5, 'Quality_Score')
+                for _, row in top5.iterrows():
+                    ticker = row.get('Ticker', '')
+                    company = row.get('Company', 'N/A')
+                    score = row.get('Quality_Score', 0)
+                    signal = row.get('SIGNAL', '') if 'SIGNAL' in row.index else ''
+                    st.markdown(f"**{ticker}** {company[:25]} — Score: {score:.0f} — {signal}")
+
+                st.markdown("")
+                st.markdown("**WEAKEST HOLDINGS**")
+                bottom3 = df.nsmallest(3, 'Quality_Score')
+                for _, row in bottom3.iterrows():
+                    ticker = row.get('Ticker', '')
+                    company = row.get('Company', 'N/A')
+                    score = row.get('Quality_Score', 0)
+                    signal = row.get('SIGNAL', '') if 'SIGNAL' in row.index else ''
+                    st.markdown(f"**{ticker}** {company[:25]} — Score: {score:.0f} — {signal}")
+
+        # Sector breakdown
+        if 'GICS Sector' in df.columns:
+            st.divider()
+            st.markdown("<h3>SECTOR ALLOCATION</h3>", unsafe_allow_html=True)
+            sector_counts = df['GICS Sector'].value_counts()
+            fig_sector = px.bar(
+                x=sector_counts.values, y=sector_counts.index,
+                orientation='h', title="Holdings by Sector",
+                color=sector_counts.values,
+                color_continuous_scale=['#06b6d4', '#f97316']
+            )
+            fig_sector.update_layout(
+                template='plotly_dark', height=350,
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                showlegend=False, xaxis_title="Count", yaxis_title="",
+                coloraxis_showscale=False
+            )
+            st.plotly_chart(fig_sector, use_container_width=True)
+
+    st.divider()
+
+    # Claude AI section
+    st.markdown("<h3>CLAUDE AI ANALYSIS</h3>", unsafe_allow_html=True)
 
     # Check API availability
     api_key = None
@@ -1206,9 +1348,9 @@ def display_ai_tab():
             api_key = os.getenv("ANTHROPIC_API_KEY")
 
     if not ANTHROPIC_AVAILABLE:
-        st.warning("Install Anthropic SDK: `pip install anthropic`")
+        st.info("Para activar el analisis AI, instala el SDK: `pip install anthropic`")
     elif not api_key:
-        st.warning("Configure ANTHROPIC_API_KEY in Streamlit Secrets")
+        st.info("Para activar el analisis AI con Claude, configura ANTHROPIC_API_KEY en Streamlit Secrets (Settings > Secrets)")
     else:
         # Load cache
         ai_cache = load_ai_cache()
