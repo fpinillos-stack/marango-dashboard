@@ -1114,50 +1114,54 @@ def display_scores_tab():
                 st.plotly_chart(fig, use_container_width=True)
 
             with col_info:
-                st.markdown(f"**Sector:** {sector}")
-                st.markdown(f"**Signal:** {signal}")
-                if ticker:
-                    st.markdown(f"**Ticker:** {ticker}")
-
-                # Pillar scores bar
+                # Radar chart of quality pillars
                 pillar_cols = [c for c in ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] if c in row.index and pd.notna(row.get(c))]
                 if pillar_cols:
                     pillar_values = [float(row[p]) for p in pillar_cols]
-                    pillar_names = [f"{p}: {pillar_info.get(p, {}).get('name', p)}" for p in pillar_cols]
-                    colors = ['#10b981' if v >= 15 else '#06b6d4' if v >= 10 else '#f59e0b' if v >= 5 else '#ef4444' for v in pillar_values]
+                    pillar_labels = [pillar_info.get(p, {}).get('name', p) for p in pillar_cols]
+                    # Close the radar polygon
+                    radar_values = pillar_values + [pillar_values[0]]
+                    radar_labels = pillar_labels + [pillar_labels[0]]
 
-                    fig2 = go.Figure(data=[go.Bar(
-                        x=pillar_names, y=pillar_values,
-                        marker=dict(color=colors),
-                        text=[f"{v:.0f}" for v in pillar_values],
-                        textposition='outside'
-                    )])
-                    fig2.update_layout(
-                        template='plotly_dark', height=200,
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(family='JetBrains Mono', color='#e5e7eb', size=10),
-                        margin=dict(l=0, r=0, t=10, b=40),
-                        yaxis=dict(range=[0, max(pillar_values) * 1.3 if pillar_values else 20]),
+                    fig_radar = go.Figure()
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=radar_values,
+                        theta=radar_labels,
+                        fill='toself',
+                        fillcolor='rgba(249,115,22,0.15)',
+                        line=dict(color='#f97316', width=2),
+                        marker=dict(size=6, color='#f97316'),
+                        name=company[:15]
+                    ))
+                    max_val = max(pillar_values) if pillar_values else 20
+                    fig_radar.update_layout(
+                        polar=dict(
+                            radialaxis=dict(visible=True, range=[0, max_val * 1.2],
+                                           gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=9, color='#9ca3af')),
+                            angularaxis=dict(gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=10, color='#e5e7eb')),
+                            bgcolor='rgba(0,0,0,0)'
+                        ),
+                        template='plotly_dark', height=280,
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                        margin=dict(l=40, r=40, t=30, b=30),
                         showlegend=False
                     )
-                    st.plotly_chart(fig2, use_container_width=True)
+                    st.plotly_chart(fig_radar, use_container_width=True)
 
-            # Detailed metrics per pillar
-            st.markdown("---")
-            st.markdown("**PILLAR DETAILS**")
-            pcols = st.columns(len(pillar_info))
+            # Pillar detail metrics below the chart
+            st.markdown("**DETAIL**")
+            detail_cols = st.columns(len(pillar_info))
             for i, (pkey, pinfo) in enumerate(pillar_info.items()):
-                with pcols[i]:
-                    p_score = row.get(pkey, 'N/A')
-                    p_display = f"{p_score:.0f}" if isinstance(p_score, (int, float)) and pd.notna(p_score) else "N/A"
-                    st.markdown(f"**{pkey}: {pinfo['name']}**")
-                    st.markdown(f"Score: **{p_display}**")
+                with detail_cols[i]:
+                    p_score = row.get(pkey, None)
+                    p_display = f"{p_score:.0f}" if isinstance(p_score, (int, float)) and pd.notna(p_score) else "—"
+                    p_color = '#10b981' if isinstance(p_score, (int, float)) and p_score >= 15 else '#06b6d4' if isinstance(p_score, (int, float)) and p_score >= 10 else '#f59e0b' if isinstance(p_score, (int, float)) and p_score >= 5 else '#ef4444'
+                    st.markdown(f"**{pinfo['name']}**: <span style='color:{p_color};font-weight:700;'>{p_display}</span>", unsafe_allow_html=True)
                     for metric, score_col in zip(pinfo['metrics'], pinfo['scores']):
                         val = row.get(metric, None)
-                        sub = row.get(score_col, None)
                         if val is not None and pd.notna(val):
-                            sub_str = f" (s:{sub:.0f})" if sub is not None and pd.notna(sub) else ""
-                            st.caption(f"{metric}: {val:.1f}{sub_str}")
+                            st.caption(f"{metric}: {val:.1f}")
 
 def display_holdings_tab():
     """Holdings with sparklines and color-coded changes"""
