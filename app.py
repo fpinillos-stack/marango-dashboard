@@ -976,12 +976,10 @@ def display_bridge_tab():
                 st.info("No trim recommendations")
 
 def display_markets_tab():
-    """Markets: Indices + Regime + Sectors"""
+    """Markets: Global Indices by Region"""
     st.markdown("<h2>MARKET OVERVIEW</h2>", unsafe_allow_html=True)
 
-    regime = load_regime()
     indices = get_market_indices()
-    sectors = get_sector_performance()
 
     # Market Indices by Region
     region_order = ['Americas', 'EMEA', 'Asia/Pacific', 'Macro']
@@ -1020,110 +1018,6 @@ def display_markets_tab():
             hide_index=True
         )
 
-    st.divider()
-
-    # Regime Gauge
-    st.markdown("<h3>REGIME ANALYSIS</h3>", unsafe_allow_html=True)
-
-    fig = go.Figure(data=[go.Indicator(
-        mode="gauge+number+delta",
-        value=regime['combined'],
-        domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': "COMBINED REGIME SCORE"},
-        delta={'reference': 60},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': '#f97316'},
-            'steps': [
-                {'range': [0, 35], 'color': 'rgba(16, 185, 129, 0.2)'},
-                {'range': [35, 60], 'color': 'rgba(6, 182, 212, 0.2)'},
-                {'range': [60, 80], 'color': 'rgba(245, 158, 11, 0.2)'},
-                {'range': [80, 100], 'color': 'rgba(239, 68, 68, 0.2)'}
-            ]
-        }
-    )])
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='JetBrains Mono', color='#e5e7eb'),
-        height=350,
-        margin=dict(l=0, r=0, t=50, b=0)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.divider()
-
-    # Sector Heatmap
-    st.markdown("<h3>SECTOR PERFORMANCE</h3>", unsafe_allow_html=True)
-
-    sorted_sectors = sorted(sectors.items(), key=lambda x: x[1]['change'], reverse=True)
-
-    sector_data = []
-    for sector, data in sorted_sectors:
-        sector_data.append({
-            'Sector': sector,
-            'Ticker': data['ticker'],
-            'Change %': data['change']
-        })
-
-    sector_df = pd.DataFrame(sector_data)
-
-    fig = go.Figure(data=[go.Bar(
-        x=sector_df['Sector'],
-        y=sector_df['Change %'],
-        marker=dict(
-            color=sector_df['Change %'],
-            colorscale='RdYlGn',
-            cmid=0
-        )
-    )])
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='JetBrains Mono', color='#e5e7eb'),
-        height=400,
-        xaxis_title="",
-        yaxis_title="Change %",
-        showlegend=False
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.divider()
-
-    # Regime History
-    st.markdown("<h3>REGIME HISTORY (6M)</h3>", unsafe_allow_html=True)
-
-    dates = pd.date_range(end=pd.Timestamp.now(), periods=180, freq='D')
-    np.random.seed(42)
-    regime_hist = 60 + np.cumsum(np.random.randn(180) * 2)
-    regime_hist = np.clip(regime_hist, 20, 85)
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dates, y=regime_hist, mode='lines',
-                             name='Combined',
-                             line=dict(color='#f97316', width=3),
-                             fill='tozeroy',
-                             fillcolor='rgba(249, 115, 22, 0.1)'))
-
-    fig.add_hrect(y0=0, y1=35, fillcolor="#10b981", opacity=0.05, line_width=0)
-    fig.add_hrect(y0=60, y1=80, fillcolor="#f59e0b", opacity=0.05, line_width=0)
-    fig.add_hrect(y0=80, y1=100, fillcolor="#ef4444", opacity=0.05, line_width=0)
-
-    fig.update_layout(
-        template='plotly_dark',
-        hovermode='x unified',
-        height=400,
-        yaxis=dict(range=[0, 100]),
-        margin=dict(l=0, r=0, t=30, b=0),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='JetBrains Mono', color='#e5e7eb'),
-        showlegend=False
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
 
 def display_scores_tab():
     """Scores: Select a company to see quality radar chart and pillar breakdown"""
