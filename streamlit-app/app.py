@@ -2926,10 +2926,10 @@ st.divider()
 
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "MARKETS",
-    "REGIME",
-    "MOMENTUM",
     "SCORES",
+    "REGIME",
     "BRIDGE",
+    "MOMENTUM",
     "HOLDINGS",
     "ANALYTICS"
 ])
@@ -2943,30 +2943,30 @@ with tab1:
 
 with tab2:
     try:
-        display_regime_tab()
-    except Exception as e:
-        st.error(f"Regime tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab3:
-    try:
-        display_momentum_tab()
-    except Exception as e:
-        st.error(f"Momentum tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab4:
-    try:
         display_scores_tab()
     except Exception as e:
         st.error(f"Scores tab error: {str(e)}")
         st.code(traceback.format_exc())
 
-with tab5:
+with tab3:
+    try:
+        display_regime_tab()
+    except Exception as e:
+        st.error(f"Regime tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab4:
     try:
         display_bridge_tab()
     except Exception as e:
         st.error(f"Bridge tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab5:
+    try:
+        display_momentum_tab()
+    except Exception as e:
+        st.error(f"Momentum tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 with tab6:
