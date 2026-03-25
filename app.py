@@ -229,6 +229,13 @@ st.markdown("""
 # DATA LOADING FUNCTIONS (UNCHANGED)
 # ============================================
 
+def safe_str(val, default=''):
+    """Return default if val is NaN/None, else str(val)"""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return default
+    s = str(val).strip()
+    return default if s.lower() == 'nan' or s == '' else s
+
 @st.cache_data
 def load_bloque1():
     """Load Bloque 1 - Financial Scoring"""
@@ -1024,10 +1031,10 @@ def display_scores_tab():
     sorted_df = b1_df.sort_values('Quality_Score', ascending=False).reset_index(drop=True)
     company_options = []
     for _, row in sorted_df.iterrows():
-        ticker = row.get('Ticker', '')
-        company = row.get('Company', 'N/A')
+        ticker = safe_str(row.get('Ticker', ''))
+        company = safe_str(row.get('Company', ''), 'N/A')
         score = row.get('Quality_Score', 0)
-        signal = row.get('SIGNAL', '')
+        signal = safe_str(row.get('SIGNAL', ''))
         label = f"{ticker} — {company}  [{score:.0f}]  {signal}" if ticker else f"{company}  [{score:.0f}]  {signal}"
         company_options.append(label)
 
@@ -1038,11 +1045,11 @@ def display_scores_tab():
     selected_idx = company_options.index(selected)
     row = sorted_df.iloc[selected_idx]
 
-    company = row.get('Company', 'N/A')
-    ticker = row.get('Ticker', '')
-    sector = row.get('GICS Sector', 'N/A')
+    company = safe_str(row.get('Company', ''), 'N/A')
+    ticker = safe_str(row.get('Ticker', ''))
+    sector = safe_str(row.get('GICS Sector', ''), 'N/A')
     score = row.get('Quality_Score', 0)
-    signal = row.get('SIGNAL', 'N/A')
+    signal = safe_str(row.get('SIGNAL', ''), 'N/A')
 
     # Score color
     if score >= 80:
@@ -1284,8 +1291,8 @@ def display_holdings_tab():
                 st.markdown("**TOP GAINERS**")
                 top5 = movers_df.nlargest(5, 'Daily_Change')
                 for _, row in top5.iterrows():
-                    ticker = row.get('Ticker', '')
-                    company = row.get('Company', '')[:20]
+                    ticker = safe_str(row.get('Ticker', ''))
+                    company = safe_str(row.get('Company', ''))[:20]
                     chg = row['Daily_Change']
                     st.markdown(
                         f'<div style="display:flex;justify-content:space-between;padding:0.3rem 0;'
@@ -1298,8 +1305,8 @@ def display_holdings_tab():
                 st.markdown("**TOP LOSERS**")
                 bottom5 = movers_df.nsmallest(5, 'Daily_Change')
                 for _, row in bottom5.iterrows():
-                    ticker = row.get('Ticker', '')
-                    company = row.get('Company', '')[:20]
+                    ticker = safe_str(row.get('Ticker', ''))
+                    company = safe_str(row.get('Company', ''))[:20]
                     chg = row['Daily_Change']
                     st.markdown(
                         f'<div style="display:flex;justify-content:space-between;padding:0.3rem 0;'
@@ -1347,20 +1354,20 @@ def display_ai_tab():
                 st.markdown("**TOP QUALITY HOLDINGS**")
                 top5 = df.nlargest(5, 'Quality_Score')
                 for _, row in top5.iterrows():
-                    ticker = row.get('Ticker', '')
-                    company = row.get('Company', 'N/A')
+                    ticker = safe_str(row.get('Ticker', ''))
+                    company = safe_str(row.get('Company', ''), 'N/A')
                     score = row.get('Quality_Score', 0)
-                    signal = row.get('SIGNAL', '') if 'SIGNAL' in row.index else ''
+                    signal = safe_str(row.get('SIGNAL', ''))
                     st.markdown(f"**{ticker}** {company[:25]} — Score: {score:.0f} — {signal}")
 
                 st.markdown("")
                 st.markdown("**WEAKEST HOLDINGS**")
                 bottom3 = df.nsmallest(3, 'Quality_Score')
                 for _, row in bottom3.iterrows():
-                    ticker = row.get('Ticker', '')
-                    company = row.get('Company', 'N/A')
+                    ticker = safe_str(row.get('Ticker', ''))
+                    company = safe_str(row.get('Company', ''), 'N/A')
                     score = row.get('Quality_Score', 0)
-                    signal = row.get('SIGNAL', '') if 'SIGNAL' in row.index else ''
+                    signal = safe_str(row.get('SIGNAL', ''))
                     st.markdown(f"**{ticker}** {company[:25]} — Score: {score:.0f} — {signal}")
 
         # Sector breakdown
