@@ -300,6 +300,124 @@ def load_regime():
         }
 
 @st.cache_data
+def load_regime_full():
+    """Load all Market Regime indicators from B5 sheet"""
+    try:
+        df = pd.read_excel(
+            'Bloque_5_Market_Regime_V5.xlsx',
+            sheet_name='B5 - Market Regime',
+            header=None
+        )
+
+        data = {}
+
+        # Sentiment indicators (rows 6-10)
+        sentiment_indicators = []
+        for i in range(6, 11):
+            row = df.iloc[i]
+            if pd.notna(row[1]):
+                sentiment_indicators.append({
+                    'indicator': safe_str(row[1]),
+                    'value': row[2],
+                    'risk_on': safe_str(row[3]),
+                    'neutral': safe_str(row[4]),
+                    'risk_off': safe_str(row[5]),
+                    'direction': safe_str(row[6]),
+                    'status': safe_str(row[7])
+                })
+        data['sentiment_indicators'] = sentiment_indicators
+        # Sentiment composite score is in row 12, col 8
+        data['sentiment_score'] = float(df.iloc[12, 8]) if pd.notna(df.iloc[12, 8]) else 0
+
+        # Regime classification
+        data['sentiment_regime'] = safe_str(df.iloc[15, 2])
+        data['regime_change_prob'] = safe_str(df.iloc[17, 2])
+
+        # Risk-off triggers (rows 26-31)
+        triggers = []
+        for i in range(26, 32):
+            row = df.iloc[i]
+            if pd.notna(row[0]) and pd.notna(row[1]):
+                triggers.append({
+                    'trigger': safe_str(row[0]),
+                    'condition': safe_str(row[1]),
+                    'current': safe_str(row[2]),
+                    'triggered': safe_str(row[3]),
+                    'action': safe_str(row[4])
+                })
+        data['triggers'] = triggers
+
+        # Technical indicators (rows 40-45)
+        tech_indicators = []
+        for i in range(40, 46):
+            row = df.iloc[i]
+            if pd.notna(row[0]):
+                tech_indicators.append({
+                    'indicator': safe_str(row[0]),
+                    'value': row[1],
+                    'reference': row[2],
+                    'score': row[5] if pd.notna(row[5]) else 0,
+                    'weight': row[6] if pd.notna(row[6]) else 0
+                })
+        data['tech_indicators'] = tech_indicators
+        # Technical composite score is in row 46, col 5
+        data['tech_score'] = float(df.iloc[46, 5]) if pd.notna(df.iloc[46, 5]) else 0
+        data['tech_regime'] = safe_str(df.iloc[49, 2])
+
+        # Liquidity indicators (rows 55-65)
+        liq_indicators = []
+        for i in range(55, 66):
+            row = df.iloc[i]
+            if pd.notna(row[1]):
+                liq_indicators.append({
+                    'indicator': safe_str(row[1]),
+                    'value': row[2],
+                    'risk_on': safe_str(row[3]),
+                    'neutral': safe_str(row[4]),
+                    'risk_off': safe_str(row[5]),
+                    'direction': safe_str(row[6]),
+                    'status': safe_str(row[7])
+                })
+        data['liq_indicators'] = liq_indicators
+        # Liquidity composite score is in row 66, col 8
+        data['liq_score'] = float(df.iloc[66, 8]) if pd.notna(df.iloc[66, 8]) else 0
+        data['liq_regime'] = safe_str(df.iloc[69, 2])
+
+        # Combined score (rows 78-83)
+        data['combined_score'] = float(df.iloc[81, 2]) if pd.notna(df.iloc[81, 2]) else 0
+        data['combined_status'] = safe_str(df.iloc[81, 8])
+        data['override'] = safe_str(df.iloc[82, 2])
+        data['action'] = safe_str(df.iloc[83, 2])
+
+        # Divergence (rows 86-89)
+        data['divergence_status'] = safe_str(df.iloc[87, 1])
+        data['divergence_guidance'] = safe_str(df.iloc[89, 1])
+
+        # Sector rotation (rows 95-104)
+        sectors = []
+        for i in range(95, 105):
+            row = df.iloc[i]
+            if pd.notna(row[1]):
+                sectors.append({
+                    'sector': safe_str(row[1]),
+                    'beta': safe_str(row[2]),
+                    'signal': safe_str(row[7])
+                })
+        data['sectors'] = sectors
+
+        # Positioning summary (rows 107-110)
+        data['favor'] = safe_str(df.iloc[107, 1])
+        data['neutral_sectors'] = safe_str(df.iloc[108, 1])
+        data['avoid'] = safe_str(df.iloc[109, 1])
+        data['marango_action'] = safe_str(df.iloc[110, 1])
+
+        return data
+
+    except Exception as e:
+        st.error(f"Error loading Regime Full: {str(e)}")
+        return None
+
+@st.cache_data
 def load_bridge_data():
     """Load Bridge actionable picks"""
     try:
@@ -1261,74 +1379,241 @@ def display_scores_tab():
     )
     st.plotly_chart(fig_tree, use_container_width=True)
 
-    # ── PILLAR CORRELATION HEATMAP ──────────────────────────────
-    st.divider()
-    st.markdown("<h3>PILLAR CORRELATION MATRIX</h3>", unsafe_allow_html=True)
-    st.caption("How quality pillars correlate across the portfolio (Pearson r)")
 
-    pillar_cols_available = [p for p in ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] if p in b1_df.columns]
-    pillar_names = {
-        'P1': 'Profitability', 'P2': 'Growth', 'P3': 'Fin. Health',
-        'P4': 'Cash Flow', 'P5': 'Valuation', 'P6': 'Shareholder Ret.'
-    }
+def display_regime_tab():
+    """Market Regime — Full indicator dashboard from Bloque 5"""
+    st.markdown("<h2>MARKET REGIME DASHBOARD</h2>", unsafe_allow_html=True)
 
-    if len(pillar_cols_available) >= 3:
-        corr_df = b1_df[pillar_cols_available].corr()
-        corr_labels = [pillar_names.get(c, c) for c in corr_df.columns]
+    data = load_regime_full()
+    if data is None:
+        st.info("No regime data available")
+        return
 
-        # Build heatmap with text annotations on cells
-        z_vals = corr_df.values
-        # Create text matrix for annotations
-        text_vals = [[f"{z_vals[i][j]:.2f}" for j in range(len(corr_labels))] for i in range(len(corr_labels))]
-
-        fig_heat = go.Figure(data=go.Heatmap(
-            z=z_vals,
-            x=corr_labels,
-            y=corr_labels,
-            text=text_vals,
-            texttemplate="%{text}",
-            textfont=dict(size=12, family='JetBrains Mono'),
-            colorscale=[
-                [0, '#ef4444'],
-                [0.25, '#f97316'],
-                [0.5, '#1e1e2e'],
-                [0.75, '#06b6d4'],
-                [1, '#10b981']
-            ],
-            zmin=-1, zmax=1,
-            showscale=True,
-            colorbar=dict(
-                title='r', titlefont=dict(size=11, color='#9ca3af'),
-                tickfont=dict(size=10, color='#9ca3af'),
-                len=0.8
-            ),
-            hovertemplate='%{y} ↔ %{x}<br>r = %{z:.2f}<extra></extra>'
-        ))
-        fig_heat.update_layout(
-            template='plotly_dark', height=450,
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
-            margin=dict(l=10, r=10, t=30, b=10),
-            xaxis=dict(side='bottom', tickangle=0),
-            yaxis=dict(autorange='reversed')
-        )
-        st.plotly_chart(fig_heat, use_container_width=True)
-
-        # Quick insight — strongest and weakest correlations (excluding diagonal)
-        mask = np.ones_like(z_vals, dtype=bool)
-        np.fill_diagonal(mask, False)
-        masked = z_vals.copy()
-        masked[~mask] = np.nan
-        max_idx = np.unravel_index(np.nanargmax(masked), masked.shape)
-        min_idx = np.unravel_index(np.nanargmin(masked), masked.shape)
-        st.markdown(
-            f"**Strongest link:** {corr_labels[max_idx[0]]} ↔ {corr_labels[max_idx[1]]} "
-            f"(r = {z_vals[max_idx[0]][max_idx[1]]:.2f})  |  "
-            f"**Weakest link:** {corr_labels[min_idx[0]]} ↔ {corr_labels[min_idx[1]]} "
-            f"(r = {z_vals[min_idx[0]][min_idx[1]]:.2f})"
-        )
+    # ── COMBINED SCORE HEADER ──────────────────────────────────
+    combined = data.get('combined_score', 0)
+    if combined >= 70:
+        c_color = "#10b981"
+    elif combined >= 55:
+        c_color = "#06b6d4"
+    elif combined >= 45:
+        c_color = "#f59e0b"
     else:
-        st.info("Not enough pillar data for correlation analysis")
+        c_color = "#ef4444"
+
+    override_text = data.get('override', '')
+    action_text = data.get('action', '')
+
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg, rgba(249,115,22,0.08), rgba(6,182,212,0.05));
+                border:1px solid rgba(249,115,22,0.3); border-radius:12px; padding:1.2rem 1.5rem; margin-bottom:1.2rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <div>
+                <span style="color:#9ca3af; font-size:0.85rem; text-transform:uppercase;">Combined Regime Score</span><br>
+                <span style="font-family:JetBrains Mono; font-size:2.5rem; font-weight:700; color:{c_color};">{combined:.0f}</span>
+                <span style="color:#6b7280; font-size:1rem;">/100</span>
+            </div>
+            <div style="text-align:right; max-width:60%;">
+                <span style="font-size:1rem; font-weight:600; color:{c_color};">{safe_str(data.get('combined_status', ''))}</span><br>
+                <span style="color:#f59e0b; font-size:0.85rem;">{override_text}</span>
+            </div>
+        </div>
+        {'<div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px solid rgba(255,255,255,0.08); color:#e5e7eb; font-size:0.85rem;"><b>Action:</b> ' + action_text + '</div>' if action_text else ''}
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── THREE SCORE GAUGES ─────────────────────────────────────
+    col1, col2, col3 = st.columns(3)
+
+    scores = [
+        ('Sentiment', data.get('sentiment_score', 0), data.get('sentiment_regime', ''), '🌐'),
+        ('Technical', data.get('tech_score', 0), data.get('tech_regime', ''), '📊'),
+        ('Liquidity', data.get('liq_score', 0), data.get('liq_regime', ''), '💧'),
+    ]
+
+    for col, (name, score_val, regime_text, icon) in zip([col1, col2, col3], scores):
+        with col:
+            if score_val >= 70:
+                s_color = "#10b981"
+            elif score_val >= 55:
+                s_color = "#06b6d4"
+            elif score_val >= 45:
+                s_color = "#f59e0b"
+            else:
+                s_color = "#ef4444"
+
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=score_val,
+                title={'text': f"{icon} {name}", 'font': {'size': 14, 'color': '#e5e7eb'}},
+                gauge={
+                    'axis': {'range': [0, 100], 'tickcolor': '#6b7280'},
+                    'bar': {'color': s_color},
+                    'bgcolor': 'rgba(255,255,255,0.03)',
+                    'steps': [
+                        {'range': [0, 45], 'color': 'rgba(239,68,68,0.1)'},
+                        {'range': [45, 55], 'color': 'rgba(245,158,11,0.1)'},
+                        {'range': [55, 70], 'color': 'rgba(6,182,212,0.1)'},
+                        {'range': [70, 100], 'color': 'rgba(16,185,129,0.1)'}
+                    ]
+                },
+                number={'font': {'color': s_color, 'family': 'JetBrains Mono'}}
+            ))
+            fig.update_layout(
+                template='plotly_dark', height=200,
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                margin=dict(l=20, r=20, t=40, b=10)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown(f"<div style='text-align:center; color:#9ca3af; font-size:0.8rem; margin-top:-0.5rem;'>{regime_text}</div>", unsafe_allow_html=True)
+
+    # ── DIVERGENCE ALERT ───────────────────────────────────────
+    div_status = data.get('divergence_status', '')
+    div_guidance = data.get('divergence_guidance', '')
+    if div_status:
+        st.markdown(f"""
+        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2);
+                    border-radius:8px; padding:0.8rem 1rem; margin:0.5rem 0;">
+            <span style="font-weight:700; color:#f59e0b;">DIVERGENCE:</span>
+            <span style="color:#e5e7eb;"> {div_status}</span><br>
+            <span style="color:#9ca3af; font-size:0.85rem;">{div_guidance}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── INDICATOR TABLES ───────────────────────────────────────
+    def render_indicator_table(title, indicators, has_thresholds=True):
+        st.markdown(f"<h3>{title}</h3>", unsafe_allow_html=True)
+        for ind in indicators:
+            status = ind.get('status', '')
+            if '✅' in status or 'Risk-On' in status:
+                status_color = "#10b981"
+            elif '🔴' in status or 'Risk-Off' in status:
+                status_color = "#ef4444"
+            else:
+                status_color = "#f59e0b"
+
+            val = ind.get('value', '')
+            if isinstance(val, float):
+                val_str = f"{val:.2f}" if val < 10 else f"{val:.1f}" if val < 1000 else f"{val:,.0f}"
+            else:
+                val_str = safe_str(val)
+
+            st.markdown(f"""
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
+                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem;">
+                <span style="color:#e5e7eb; flex:2;">{ind.get('indicator', '')}</span>
+                <span style="color:#f97316; font-family:JetBrains Mono; font-weight:600; flex:1; text-align:center;">{val_str}</span>
+                <span style="color:{status_color}; flex:1; text-align:right;">{status}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Two columns: Sentiment + Technical left, Liquidity + Triggers right
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        render_indicator_table("🌐 SENTIMENT & SYSTEMIC RISK", data.get('sentiment_indicators', []))
+        st.markdown("")
+        # Technical as simpler table
+        st.markdown("<h3>📊 TECHNICAL INDICATORS — S&P 500</h3>", unsafe_allow_html=True)
+        for ind in data.get('tech_indicators', []):
+            score_val = ind.get('score', 0)
+            if isinstance(score_val, (int, float)) and not pd.isna(score_val):
+                if score_val >= 60:
+                    s_col = "#10b981"
+                elif score_val >= 30:
+                    s_col = "#f59e0b"
+                else:
+                    s_col = "#ef4444"
+                score_str = f"{score_val:.0f}"
+            else:
+                s_col = "#6b7280"
+                score_str = "—"
+
+            val = ind.get('value', '')
+            if isinstance(val, float):
+                val_str = f"{val:.2f}" if abs(val) < 100 else f"{val:,.0f}"
+            else:
+                val_str = safe_str(val)
+
+            st.markdown(f"""
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
+                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem;">
+                <span style="color:#e5e7eb; flex:2;">{ind.get('indicator', '')}</span>
+                <span style="color:#f97316; font-family:JetBrains Mono; font-weight:600; flex:1; text-align:center;">{val_str}</span>
+                <span style="color:{s_col}; font-family:JetBrains Mono; font-weight:700; flex:1; text-align:right;">{score_str}/100</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with col_right:
+        render_indicator_table("💧 LIQUIDITY MONITOR", data.get('liq_indicators', []))
+
+    st.divider()
+
+    # ── RISK-OFF TRIGGERS ──────────────────────────────────────
+    st.markdown("<h3>🚨 RISK-OFF TRIGGERS</h3>", unsafe_allow_html=True)
+
+    trigger_cols = st.columns(3)
+    for i, trig in enumerate(data.get('triggers', [])):
+        col_idx = i % 3
+        triggered = trig.get('triggered', '')
+        is_active = '🔴' in triggered or 'YES' in triggered.upper()
+        border_color = 'rgba(239,68,68,0.4)' if is_active else 'rgba(255,255,255,0.06)'
+        bg = 'rgba(239,68,68,0.08)' if is_active else 'rgba(255,255,255,0.02)'
+
+        with trigger_cols[col_idx]:
+            st.markdown(f"""
+            <div style="background:{bg}; border:1px solid {border_color};
+                        border-radius:8px; padding:0.8rem; margin-bottom:0.6rem; min-height:120px;">
+                <div style="font-weight:700; color:{'#ef4444' if is_active else '#e5e7eb'}; font-size:0.9rem; margin-bottom:0.3rem;">
+                    {trig.get('trigger', '')} {triggered}
+                </div>
+                <div style="color:#9ca3af; font-size:0.8rem;">
+                    Condition: {trig.get('condition', '')}<br>
+                    Current: <span style="color:#f97316; font-family:JetBrains Mono;">{trig.get('current', '')}</span>
+                </div>
+                <div style="color:#6b7280; font-size:0.75rem; margin-top:0.3rem;">{trig.get('action', '')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── SECTOR ROTATION ────────────────────────────────────────
+    st.markdown("<h3>🔄 SECTOR ROTATION SIGNALS</h3>", unsafe_allow_html=True)
+
+    for sec in data.get('sectors', []):
+        signal = sec.get('signal', '')
+        if '✅' in signal or 'Overweight' in signal:
+            sig_color = "#10b981"
+        elif '🔴' in signal or 'Underweight' in signal or 'Avoid' in signal:
+            sig_color = "#ef4444"
+        else:
+            sig_color = "#f59e0b"
+
+        st.markdown(f"""
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
+                    border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem;">
+            <span style="color:#e5e7eb; flex:2;">{sec.get('sector', '')}</span>
+            <span style="color:#6b7280; flex:1; text-align:center;">Beta: {sec.get('beta', '')}</span>
+            <span style="color:{sig_color}; font-weight:600; flex:1; text-align:right;">{signal}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Positioning summary
+    st.markdown(f"""
+    <div style="background:rgba(249,115,22,0.06); border:1px solid rgba(249,115,22,0.2);
+                border-radius:8px; padding:1rem; margin-top:1rem;">
+        <div style="font-weight:700; color:#f97316; margin-bottom:0.5rem;">🎯 CURRENT POSITIONING</div>
+        <div style="color:#10b981; font-size:0.9rem; margin-bottom:0.2rem;"><b>FAVOR:</b> {data.get('favor', '')}</div>
+        <div style="color:#f59e0b; font-size:0.9rem; margin-bottom:0.2rem;"><b>NEUTRAL:</b> {data.get('neutral_sectors', '')}</div>
+        <div style="color:#ef4444; font-size:0.9rem; margin-bottom:0.2rem;"><b>AVOID:</b> {data.get('avoid', '')}</div>
+        <div style="color:#e5e7eb; font-size:0.9rem; margin-top:0.5rem; border-top:1px solid rgba(255,255,255,0.08); padding-top:0.5rem;">
+            <b>MARANGO:</b> {data.get('marango_action', '')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 def display_holdings_tab():
     """Holdings with sparklines and color-coded changes"""
@@ -1772,9 +2057,10 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "BRIDGE",
     "MARKETS",
+    "REGIME",
     "SCORES",
     "HOLDINGS",
     "AI"
@@ -1796,19 +2082,26 @@ with tab2:
 
 with tab3:
     try:
+        display_regime_tab()
+    except Exception as e:
+        st.error(f"Regime tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab4:
+    try:
         display_scores_tab()
     except Exception as e:
         st.error(f"Scores tab error: {str(e)}")
         st.code(traceback.format_exc())
 
-with tab4:
+with tab5:
     try:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
         st.code(traceback.format_exc())
 
-with tab5:
+with tab6:
     try:
         display_ai_tab()
     except Exception as e:
