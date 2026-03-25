@@ -279,7 +279,26 @@ def load_bloque1():
 
 @st.cache_data
 def load_regime():
-    """Load Market Regime from Bridge"""
+    """Load Market Regime — tries live Yahoo Finance first, falls back to Excel Bridge"""
+    # Try live data first
+    try:
+        live = get_live_regime()
+        if live is not None:
+            active_triggers = [t for t in live.get('triggers', []) if t.get('triggered') == 'YES']
+            cb_text = ', '.join([t['trigger'] for t in active_triggers]) if active_triggers else 'None'
+            return {
+                'combined': live.get('combined_score', 0),
+                'status': live.get('combined_status', 'Unknown'),
+                'technical': live.get('tech_score', 0),
+                'sentiment': live.get('sentiment_score', 0),
+                'liquidity': live.get('liq_score', 0),
+                'circuit_breaker': cb_text,
+                'date': pd.Timestamp.now().strftime('%Y-%m-%d')
+            }
+    except Exception:
+        pass
+
+    # Fallback to Excel
     try:
         bridge_df = pd.read_excel(
             'Bloque_5_Market_Regime_V5.xlsx',
@@ -311,9 +330,407 @@ def load_regime():
             'date': None
         }
 
-@st.cache_data
+@st.cache_data(ttl=900)
+def get_live_regime():
+    """Calculate live regime indicators from Yahoo Finance + FRED"""
+    try:
+        # ── SENTIMENT & SYSTEMIC ──────────────────────────────
+        # Download VIX, VIX3M, S&P 500, HY Bond ETF
+        sentiment_tickers = ['^VIX', '^VIX3M', '^GSPC', 'HYG', 'LQD']
+        sent_data = yf.download(sentiment_tickers, period='1y', progress=False)['Close']
+
+        if sent_data.empty:
+            return None
+
+        latest = sent_data.iloc[-1]
+        vix = float(latest.get('^VIX', 20))
+        vix3m = float(latest.get('^VIX3M', 20))
+        spx = float(latest.get('^GSPC', 5000))
+
+        # VIX Term Structure
+        vix_term = vix / vix3m if vix3m > 0 else 1.0
+
+        # HY Spread proxy: LQD/HYG ratio (higher = wider spreads)
+        hyg = float(latest.get('HYG', 75))
+        lqd = float(latest.get('LQD', 105))
+        hy_spread_proxy = (lqd / hyg - 1) * 10000  # bps approximation
+
+        # Market breadth: % of S&P 500 components above 200-day MA
+        # Approximate using SPY ETF RSI as proxy
+        spy_data = sent_data['^GSPC'].dropna()
+
+        # Sentiment indicators
+        sentiment_indicators = []
+
+        # 1. VIX scoring: <15=100, 15-22=70, 22-35=40, >35=10
+        if vix < 15:
+            vix_score = 100
+            vix_status = 'Risk-On'
+        elif vix < 22:
+            vix_score = 70
+            vix_status = 'Neutral'
+        elif vix < 35:
+            vix_score = 40
+            vix_status = 'Elevated'
+        else:
+            vix_score = 10
+            vix_status = 'Risk-Off'
+        sentiment_indicators.append({
+            'indicator': 'VIX (Volatility Index)',
+            'value': vix, 'risk_on': '< 15', 'neutral': '15 - 22',
+            'risk_off': '> 35', 'direction': 'Lower = Better',
+            'status': vix_status, 'score': vix_score
+        })
+
+        # 2. VIX Term Structure: <0.85=100, 0.85-1.0=60, >1.0=20
+        if vix_term < 0.85:
+            vt_score = 100
+            vt_status = 'Risk-On (Contango)'
+        elif vix_term < 1.0:
+            vt_score = 60
+            vt_status = 'Neutral'
+        else:
+            vt_score = 20
+            vt_status = 'Risk-Off (Backwardation)'
+        sentiment_indicators.append({
+            'indicator': 'VIX Term Structure (VIX/VIX3M)',
+            'value': vix_term, 'risk_on': '< 0.85', 'neutral': '0.85 - 1.0',
+            'risk_off': '> 1.2', 'direction': 'Lower = Better',
+            'status': vt_status, 'score': vt_score
+        })
+
+        # 3. HY Spread proxy
+        if hy_spread_proxy < 200:
+            hy_score = 90
+            hy_status = 'Risk-On'
+        elif hy_spread_proxy < 400:
+            hy_score = 60
+            hy_status = 'Neutral'
+        else:
+            hy_score = 20
+            hy_status = 'Risk-Off'
+        sentiment_indicators.append({
+            'indicator': 'HY Spread Proxy (LQD/HYG bps)',
+            'value': hy_spread_proxy, 'risk_on': '< 200', 'neutral': '200 - 400',
+            'risk_off': '> 600', 'direction': 'Lower = Better',
+            'status': hy_status, 'score': hy_score
+        })
+
+        # Sentiment composite
+        sent_weights = [0.40, 0.30, 0.30]
+        sent_scores = [vix_score, vt_score, hy_score]
+        sentiment_score = sum(w * s for w, s in zip(sent_weights, sent_scores))
+
+        # ── TECHNICAL INDICATORS ──────────────────────────────
+        tech_indicators = []
+        spy_close = spy_data.values
+
+        # S&P 500 vs 200-day MA
+        if len(spy_close) >= 200:
+            ma200 = float(np.mean(spy_close[-200:]))
+            spx_vs_ma200 = ((spx / ma200) - 1) * 100
+            if spx_vs_ma200 > 3:
+                ma200_score = 90
+            elif spx_vs_ma200 > 0:
+                ma200_score = 60
+            elif spx_vs_ma200 > -5:
+                ma200_score = 30
+            else:
+                ma200_score = 10
+            tech_indicators.append({
+                'indicator': 'S&P 500 vs MA-200',
+                'value': spx, 'reference': ma200,
+                'score': ma200_score, 'weight': 0.25
+            })
+        else:
+            ma200 = spx
+            ma200_score = 50
+
+        # S&P 500 vs 50-day MA
+        if len(spy_close) >= 50:
+            ma50 = float(np.mean(spy_close[-50:]))
+            spx_vs_ma50 = ((spx / ma50) - 1) * 100
+            if spx_vs_ma50 > 2:
+                ma50_score = 85
+            elif spx_vs_ma50 > 0:
+                ma50_score = 55
+            elif spx_vs_ma50 > -3:
+                ma50_score = 25
+            else:
+                ma50_score = 10
+            tech_indicators.append({
+                'indicator': 'S&P 500 vs MA-50',
+                'value': spx, 'reference': ma50,
+                'score': ma50_score, 'weight': 0.20
+            })
+        else:
+            ma50 = spx
+            ma50_score = 50
+
+        # Golden/Death Cross
+        if len(spy_close) >= 200:
+            cross_score = 80 if ma50 > ma200 else 15
+            cross_label = 'Golden Cross' if ma50 > ma200 else 'Death Cross'
+            tech_indicators.append({
+                'indicator': f'MA Cross ({cross_label})',
+                'value': ma50, 'reference': ma200,
+                'score': cross_score, 'weight': 0.10
+            })
+        else:
+            cross_score = 50
+
+        # RSI (14-day)
+        if len(spy_close) >= 15:
+            deltas = np.diff(spy_close[-15:])
+            gains = np.mean([d for d in deltas if d > 0]) if any(d > 0 for d in deltas) else 0
+            losses = abs(np.mean([d for d in deltas if d < 0])) if any(d < 0 for d in deltas) else 0.001
+            rs = gains / losses
+            rsi = 100 - (100 / (1 + rs))
+            if rsi > 70:
+                rsi_score = 30  # Overbought
+            elif rsi > 55:
+                rsi_score = 80
+            elif rsi > 30:
+                rsi_score = 50
+            else:
+                rsi_score = 15  # Oversold
+            tech_indicators.append({
+                'indicator': 'RSI (14-Day)',
+                'value': rsi, 'reference': 50,
+                'score': rsi_score, 'weight': 0.25
+            })
+        else:
+            rsi = 50
+            rsi_score = 50
+
+        # MACD
+        if len(spy_close) >= 26:
+            ema12 = pd.Series(spy_close).ewm(span=12).mean().iloc[-1]
+            ema26 = pd.Series(spy_close).ewm(span=26).mean().iloc[-1]
+            macd_val = ema12 - ema26
+            signal_line = pd.Series(spy_close).ewm(span=12).mean().diff().ewm(span=9).mean().iloc[-1]
+            if macd_val > 0 and macd_val > signal_line:
+                macd_score = 85
+            elif macd_val > 0:
+                macd_score = 60
+            elif macd_val > -50:
+                macd_score = 30
+            else:
+                macd_score = 10
+            tech_indicators.append({
+                'indicator': 'MACD (12,26,9)',
+                'value': macd_val, 'reference': 0,
+                'score': macd_score, 'weight': 0.20
+            })
+        else:
+            macd_score = 50
+
+        # Technical composite
+        tech_total_weight = sum(t['weight'] for t in tech_indicators)
+        tech_score = sum(t['score'] * t['weight'] for t in tech_indicators) / tech_total_weight if tech_total_weight > 0 else 50
+
+        # ── LIQUIDITY (from Yahoo Finance proxies) ────────────
+        liq_tickers = ['DX-Y.NYB', 'GLD', '^TNX', '^IRX', 'TLT']
+        liq_data = yf.download(liq_tickers, period='3mo', progress=False)['Close']
+
+        liq_indicators = []
+        liq_scores = []
+        dxy = 100.0  # default if data unavailable
+
+        if not liq_data.empty:
+            liq_latest = liq_data.iloc[-1]
+
+            # DXY Dollar Index
+            dxy = float(liq_latest.get('DX-Y.NYB', 100))
+            if dxy < 95:
+                dxy_score = 85
+                dxy_status = 'Risk-On'
+            elif dxy < 105:
+                dxy_score = 55
+                dxy_status = 'Neutral'
+            else:
+                dxy_score = 20
+                dxy_status = 'Risk-Off'
+            liq_indicators.append({
+                'indicator': 'DXY (Dollar Index)', 'value': dxy,
+                'risk_on': '< 95', 'neutral': '95 - 105', 'risk_off': '> 105',
+                'direction': 'Lower = Better', 'status': dxy_status, 'score': dxy_score
+            })
+            liq_scores.append(dxy_score * 0.20)
+
+            # 10Y Yield
+            y10 = float(liq_latest.get('^TNX', 4.0))
+            if y10 < 3.5:
+                y10_score = 80
+                y10_status = 'Supportive'
+            elif y10 < 4.5:
+                y10_score = 55
+                y10_status = 'Neutral'
+            else:
+                y10_score = 20
+                y10_status = 'Restrictive'
+            liq_indicators.append({
+                'indicator': '10Y Treasury Yield (%)', 'value': y10,
+                'risk_on': '< 3.5%', 'neutral': '3.5% - 4.5%', 'risk_off': '> 4.5%',
+                'direction': 'Lower = Better', 'status': y10_status, 'score': y10_score
+            })
+            liq_scores.append(y10_score * 0.20)
+
+            # Yield Curve (10Y - 3M)
+            y3m = float(liq_latest.get('^IRX', 4.0))
+            curve = y10 - y3m
+            if curve > 1.0:
+                curve_score = 85
+                curve_status = 'Risk-On (Steep)'
+            elif curve > 0:
+                curve_score = 55
+                curve_status = 'Neutral'
+            else:
+                curve_score = 20
+                curve_status = 'Risk-Off (Inverted)'
+            liq_indicators.append({
+                'indicator': 'Yield Curve 10Y-3M (%)', 'value': curve,
+                'risk_on': '> 1.0%', 'neutral': '0% - 1.0%', 'risk_off': '< 0% (inverted)',
+                'direction': 'Higher = Better', 'status': curve_status, 'score': curve_score
+            })
+            liq_scores.append(curve_score * 0.25)
+
+            # Gold/SPX Ratio (fear gauge)
+            gold = float(liq_latest.get('GLD', 200))
+            gold_spx = gold / spx if spx > 0 else 0
+            if gold_spx < 0.035:
+                gld_score = 80
+                gld_status = 'Risk-On'
+            elif gold_spx < 0.045:
+                gld_score = 55
+                gld_status = 'Neutral'
+            else:
+                gld_score = 25
+                gld_status = 'Risk-Off (Fear)'
+            liq_indicators.append({
+                'indicator': 'Gold/SPX Ratio', 'value': gold_spx,
+                'risk_on': '< 0.035', 'neutral': '0.035 - 0.045', 'risk_off': '> 0.045',
+                'direction': 'Lower = Better', 'status': gld_status, 'score': gld_score
+            })
+            liq_scores.append(gld_score * 0.15)
+
+            # TLT momentum (bond flight)
+            if len(liq_data) >= 21:
+                tlt_now = float(liq_latest.get('TLT', 90))
+                tlt_1m = float(liq_data['TLT'].iloc[-21]) if 'TLT' in liq_data.columns else tlt_now
+                tlt_chg = ((tlt_now / tlt_1m) - 1) * 100 if tlt_1m > 0 else 0
+                if tlt_chg < -2:
+                    tlt_score = 75  # Selling bonds = risk-on
+                    tlt_status = 'Risk-On (Bond sell-off)'
+                elif tlt_chg < 2:
+                    tlt_score = 50
+                    tlt_status = 'Neutral'
+                else:
+                    tlt_score = 25
+                    tlt_status = 'Risk-Off (Flight to safety)'
+                liq_indicators.append({
+                    'indicator': 'TLT 1M Change (%)', 'value': tlt_chg,
+                    'risk_on': '< -2%', 'neutral': '-2% to 2%', 'risk_off': '> 2%',
+                    'direction': 'Lower = Better', 'status': tlt_status, 'score': tlt_score
+                })
+                liq_scores.append(tlt_score * 0.20)
+
+        liq_score = sum(liq_scores) / (sum([0.20, 0.20, 0.25, 0.15, 0.20])) if liq_scores else 50
+
+        # ── COMBINED SCORE ────────────────────────────────────
+        combined = sentiment_score * 0.35 + tech_score * 0.35 + liq_score * 0.30
+
+        # Regime classification
+        if combined >= 70:
+            regime_status = 'RISK-ON'
+        elif combined >= 55:
+            regime_status = 'MODERATE — Normal positioning'
+        elif combined >= 45:
+            regime_status = 'CAUTION — Increase quality'
+        else:
+            regime_status = 'RISK-OFF — Defensive positioning'
+
+        # Check triggers
+        triggers = []
+        triggers.append({
+            'trigger': 'VIX Spike', 'condition': 'VIX > 25',
+            'current': f'{vix:.1f}',
+            'triggered': 'YES' if vix > 25 else 'NO',
+            'action': 'Reduce tech exposure, increase hedges'
+        })
+        triggers.append({
+            'trigger': 'Death Cross', 'condition': 'MA50 < MA200',
+            'current': f'MA50={ma50:,.0f} MA200={ma200:,.0f}',
+            'triggered': 'YES' if ma50 < ma200 else 'NO',
+            'action': 'Rotate to defensives, raise cash'
+        })
+        triggers.append({
+            'trigger': 'RSI Oversold', 'condition': 'RSI < 30',
+            'current': f'{rsi:.1f}',
+            'triggered': 'YES' if rsi < 30 else 'NO',
+            'action': 'Potential bounce — watch for reversal'
+        })
+        triggers.append({
+            'trigger': 'Strong Dollar', 'condition': 'DXY > 105',
+            'current': f'{dxy:.1f}',
+            'triggered': 'YES' if dxy > 105 else 'NO',
+            'action': 'Headwind for international earnings'
+        })
+
+        # Divergence
+        gap = abs(sentiment_score - tech_score)
+        if gap > 30:
+            div_status = 'MAJOR DIVERGENCE'
+            div_guidance = 'Reduce conviction — Wait for alignment before full sizing'
+        elif gap > 15:
+            div_status = 'MODERATE DIVERGENCE'
+            div_guidance = 'Monitor closely — Partial positions only'
+        else:
+            div_status = 'ALIGNED'
+            div_guidance = 'Macro and technicals agree — Normal conviction'
+
+        # Override check
+        active_triggers = [t for t in triggers if t['triggered'] == 'YES']
+        if len(active_triggers) >= 2:
+            override = f'Circuit Breaker — {len(active_triggers)} triggers active: ' + ', '.join([t['trigger'] for t in active_triggers])
+            action = 'Reduce risk exposure. Raise cash 10-15%. Rotate to defensives.'
+        elif len(active_triggers) == 1:
+            override = f'Warning — {active_triggers[0]["trigger"]} active'
+            action = active_triggers[0]['action']
+        else:
+            override = ''
+            action = 'Normal positioning per regime score'
+
+        return {
+            'sentiment_indicators': sentiment_indicators,
+            'sentiment_score': sentiment_score,
+            'sentiment_regime': regime_status,
+            'regime_change_prob': f'{gap:.0f}pt divergence',
+            'tech_indicators': tech_indicators,
+            'tech_score': tech_score,
+            'tech_regime': f'Technical Score: {tech_score:.0f}/100',
+            'liq_indicators': liq_indicators,
+            'liq_score': liq_score,
+            'liq_regime': f'Liquidity Score: {liq_score:.0f}/100',
+            'combined_score': combined,
+            'combined_status': regime_status,
+            'override': override,
+            'action': action,
+            'triggers': triggers,
+            'divergence_status': div_status,
+            'divergence_guidance': div_guidance,
+            'sectors': [],  # Sector rotation comes from Excel
+            'favor': '', 'neutral_sectors': '', 'avoid': '',
+            'marango_action': '',
+            'live': True
+        }
+
+    except Exception as e:
+        return None
+
+@st.cache_data(ttl=3600)
 def load_regime_full():
-    """Load all Market Regime indicators from B5 sheet"""
+    """Load all Market Regime indicators from B5 sheet (fallback if live fails)"""
     try:
         df = pd.read_excel(
             'Bloque_5_Market_Regime_V5.xlsx',
@@ -1313,10 +1730,42 @@ def display_regime_tab():
     """Market Regime — Full indicator dashboard from Bloque 5"""
     st.markdown("<h2>MARKET REGIME DASHBOARD</h2>", unsafe_allow_html=True)
 
-    data = load_regime_full()
+    # Try live data first, fall back to static Excel
+    data = get_live_regime()
+    is_live = data is not None and data.get('live', False)
+
+    if data is None:
+        data = load_regime_full()
+        is_live = False
+
     if data is None:
         st.info("No regime data available")
         return
+
+    # Merge sector rotation from Excel (not available from live feeds)
+    if is_live:
+        try:
+            excel_data = load_regime_full()
+            if excel_data:
+                data['sectors'] = excel_data.get('sectors', [])
+                data['favor'] = excel_data.get('favor', '')
+                data['neutral_sectors'] = excel_data.get('neutral_sectors', '')
+                data['avoid'] = excel_data.get('avoid', '')
+                data['marango_action'] = excel_data.get('marango_action', '')
+        except Exception:
+            pass
+
+    # Data source badge
+    src_label = "LIVE — Yahoo Finance" if is_live else "STATIC — Excel Data"
+    src_color = "#10b981" if is_live else "#f59e0b"
+    st.markdown(f"""
+    <div style="text-align:right; margin-bottom:0.5rem;">
+        <span style="background:{src_color}22; color:{src_color}; border:1px solid {src_color}44;
+                     border-radius:4px; padding:2px 10px; font-size:0.75rem; font-family:JetBrains Mono;">
+            {src_label}
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # ── COMBINED SCORE HEADER ──────────────────────────────────
     combined = data.get('combined_score', 0)
@@ -2475,14 +2924,13 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "MARKETS",
-    "REGIME",
-    "MOMENTUM",
     "SCORES",
+    "REGIME",
     "BRIDGE",
-    "HOLDINGS",
-    "ANALYTICS"
+    "MOMENTUM",
+    "HOLDINGS"
 ])
 
 with tab1:
@@ -2494,30 +2942,30 @@ with tab1:
 
 with tab2:
     try:
-        display_regime_tab()
-    except Exception as e:
-        st.error(f"Regime tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab3:
-    try:
-        display_momentum_tab()
-    except Exception as e:
-        st.error(f"Momentum tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab4:
-    try:
         display_scores_tab()
     except Exception as e:
         st.error(f"Scores tab error: {str(e)}")
         st.code(traceback.format_exc())
 
-with tab5:
+with tab3:
+    try:
+        display_regime_tab()
+    except Exception as e:
+        st.error(f"Regime tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab4:
     try:
         display_bridge_tab()
     except Exception as e:
         st.error(f"Bridge tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab5:
+    try:
+        display_momentum_tab()
+    except Exception as e:
+        st.error(f"Momentum tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 with tab6:
@@ -2525,13 +2973,6 @@ with tab6:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab7:
-    try:
-        display_analytics_tab()
-    except Exception as e:
-        st.error(f"Analytics tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
