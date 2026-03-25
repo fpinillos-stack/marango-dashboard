@@ -1276,23 +1276,18 @@ def display_scores_tab():
         corr_df = b1_df[pillar_cols_available].corr()
         corr_labels = [pillar_names.get(c, c) for c in corr_df.columns]
 
-        # Build heatmap with annotations
+        # Build heatmap with text annotations on cells
         z_vals = corr_df.values
-        annotations = []
-        for i in range(len(z_vals)):
-            for j in range(len(z_vals[0])):
-                val = z_vals[i][j]
-                text_color = '#ffffff' if abs(val) > 0.4 else '#9ca3af'
-                annotations.append(dict(
-                    x=j, y=i, text=f"{val:.2f}",
-                    font=dict(size=12, color=text_color, family='JetBrains Mono'),
-                    showarrow=False
-                ))
+        # Create text matrix for annotations
+        text_vals = [[f"{z_vals[i][j]:.2f}" for j in range(len(corr_labels))] for i in range(len(corr_labels))]
 
         fig_heat = go.Figure(data=go.Heatmap(
             z=z_vals,
             x=corr_labels,
             y=corr_labels,
+            text=text_vals,
+            texttemplate="%{text}",
+            textfont=dict(size=12, family='JetBrains Mono'),
             colorscale=[
                 [0, '#ef4444'],
                 [0.25, '#f97316'],
@@ -1306,22 +1301,20 @@ def display_scores_tab():
                 title='r', titlefont=dict(size=11, color='#9ca3af'),
                 tickfont=dict(size=10, color='#9ca3af'),
                 len=0.8
-            )
+            ),
+            hovertemplate='%{y} ↔ %{x}<br>r = %{z:.2f}<extra></extra>'
         ))
         fig_heat.update_layout(
             template='plotly_dark', height=450,
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font=dict(family='JetBrains Mono', color='#e5e7eb'),
             margin=dict(l=10, r=10, t=30, b=10),
-            annotations=annotations,
             xaxis=dict(side='bottom', tickangle=0),
             yaxis=dict(autorange='reversed')
         )
         st.plotly_chart(fig_heat, use_container_width=True)
 
-        # Quick insight
-        # Find strongest and weakest correlations (excluding diagonal)
-        import numpy as np
+        # Quick insight — strongest and weakest correlations (excluding diagonal)
         mask = np.ones_like(z_vals, dtype=bool)
         np.fill_diagonal(mask, False)
         masked = z_vals.copy()
