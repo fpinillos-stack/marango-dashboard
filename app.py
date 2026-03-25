@@ -119,31 +119,43 @@ st.markdown("""
         border-bottom: 2px solid rgba(249, 115, 22, 0.5);
     }
 
-    /* DataFrames */
-    .dataframe {
+    /* DataFrames — Bloomberg-style */
+    .dataframe, [data-testid="stDataFrame"] > div {
         font-size: 0.85rem;
-        background: #1a1a2e;
+        background: #0f0f1a;
         color: #e5e7eb;
+        border-radius: 6px;
     }
 
-    .dataframe thead th {
-        background: #1a1a2e;
-        color: #9ca3af;
+    .dataframe thead th,
+    [data-testid="stDataFrame"] th {
+        background: #14142a !important;
+        color: #f97316 !important;
         font-weight: 600;
         text-transform: uppercase;
         font-size: 0.7rem;
-        letter-spacing: 0.05em;
-        padding: 0.75rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        letter-spacing: 0.08em;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 2px solid rgba(249, 115, 22, 0.3) !important;
+        font-family: 'JetBrains Mono', monospace;
     }
 
-    .dataframe tbody td {
-        padding: 0.75rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    .dataframe tbody td,
+    [data-testid="stDataFrame"] td {
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
     }
 
-    .dataframe tbody tr:hover {
-        background: rgba(249, 115, 22, 0.08);
+    .dataframe tbody tr:nth-child(even),
+    [data-testid="stDataFrame"] tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.015);
+    }
+
+    .dataframe tbody tr:hover,
+    [data-testid="stDataFrame"] tr:hover {
+        background: rgba(249, 115, 22, 0.06);
     }
 
     /* Sidebar */
@@ -2330,20 +2342,60 @@ if df.empty:
     st.error("Could not load portfolio data. Check Excel files.")
     st.stop()
 
-# Terminal Header
-st.markdown("""
-<div style="padding: 0.8rem 1.5rem; background: rgba(15, 15, 25, 0.9);
-            border-bottom: 1px solid rgba(249, 115, 22, 0.5);
-            border-top: 2px solid #f97316;
-            font-family: 'JetBrains Mono'; font-size: 0.85rem;
-            color: #e5e7eb; letter-spacing: 0.05em;">
-    MARANGO TERMINAL | v4.0 | Quality x Regime |
-    <span style="color: #10b981;">&#x1F7E2; LIVE</span> |
-    Last: <span style="color: #f97316;">""" + datetime.now().strftime('%H:%M:%S') + """</span>
+# Terminal Header — Bloomberg Pro Style
+regime_score = regime.get('combined', 0)
+regime_status_text = regime.get('status', 'Unknown')
+if regime_score >= 70:
+    regime_dot = '#10b981'
+    regime_label = 'RISK-ON'
+elif regime_score >= 55:
+    regime_dot = '#06b6d4'
+    regime_label = 'MODERATE'
+elif regime_score >= 45:
+    regime_dot = '#f59e0b'
+    regime_label = 'CAUTION'
+else:
+    regime_dot = '#ef4444'
+    regime_label = 'RISK-OFF'
+
+header_time = datetime.now().strftime('%H:%M:%S')
+header_date = datetime.now().strftime('%d %b %Y').upper()
+
+st.markdown(f"""
+<div style="background:linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%);
+            border-top:3px solid #f97316; border-bottom:1px solid rgba(249,115,22,0.2);
+            padding:0.6rem 1.5rem; font-family:'JetBrains Mono',monospace;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.3rem;">
+        <div style="display:flex; align-items:center; gap:1rem;">
+            <span style="font-size:1.1rem; font-weight:700; color:#f97316; letter-spacing:0.12em;">MARANGO</span>
+            <span style="color:#6b7280; font-size:0.7rem; border-left:1px solid #333; padding-left:0.8rem;">TERMINAL v4.0</span>
+            <span style="color:#6b7280; font-size:0.7rem; border-left:1px solid #333; padding-left:0.8rem;">Quality × Regime × Momentum</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:1.2rem; font-size:0.75rem;">
+            <span style="color:#9ca3af;">{header_date}</span>
+            <span style="color:#f97316; font-weight:600;">{header_time}</span>
+            <span style="display:inline-flex; align-items:center; gap:0.3rem;
+                         background:rgba({','.join([str(int(regime_dot[i:i+2],16)) for i in (1,3,5)])},0.1);
+                         border:1px solid {regime_dot}40; border-radius:4px; padding:0.15rem 0.5rem;">
+                <span style="width:6px; height:6px; border-radius:50%; background:{regime_dot}; display:inline-block;"></span>
+                <span style="color:{regime_dot}; font-weight:600;">{regime_label} {regime_score:.0f}</span>
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:0.3rem;">
+                <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; animation:pulse 2s infinite;"></span>
+                <span style="color:#10b981; font-weight:600;">LIVE</span>
+            </span>
+        </div>
+    </div>
 </div>
+<style>
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.3; }}
+    }}
+</style>
 """, unsafe_allow_html=True)
 
-# Ticker Marquee
+# Ticker Marquee — Bloomberg TV Style
 def render_ticker_marquee():
     """Render scrolling ticker tape like Bloomberg TV"""
     try:
@@ -2353,24 +2405,26 @@ def render_ticker_marquee():
             if data.get('value', 0) == 0:
                 continue
             chg = data.get('change_pct', 0)
+            net = data.get('change', 0)
             color = '#10b981' if chg >= 0 else '#ef4444'
             arrow = '&#9650;' if chg >= 0 else '&#9660;'
             ticker_items.append(
-                f'<span style="margin-right: 2rem;">'
-                f'<span style="color: #9ca3af;">{name}</span> '
-                f'<span style="color: #e5e7eb; font-weight: 600;">{data["value"]:.2f}</span> '
-                f'<span style="color: {color};">{arrow} {chg:+.2f}%</span>'
+                f'<span style="display:inline-flex; align-items:center; margin-right:1.8rem; gap:0.4rem;">'
+                f'<span style="color:#f97316; font-weight:600; font-size:0.72rem;">{name}</span>'
+                f'<span style="color:#e5e7eb; font-weight:700; font-size:0.78rem;">{data["value"]:,.2f}</span>'
+                f'<span style="color:{color}; font-size:0.72rem;">{arrow}{net:+.2f}</span>'
+                f'<span style="color:{color}; font-weight:600; font-size:0.72rem;">({chg:+.2f}%)</span>'
+                f'<span style="color:rgba(255,255,255,0.08); margin:0 0.2rem;">|</span>'
                 f'</span>'
             )
-        marquee_content = ' '.join(ticker_items)
-        # Duplicate for seamless loop
+        marquee_content = ''.join(ticker_items)
         st.markdown(f"""
-        <div style="overflow: hidden; background: rgba(10, 10, 15, 0.95);
-                    border-bottom: 1px solid rgba(255,255,255,0.03);
-                    padding: 0.4rem 0; font-family: 'JetBrains Mono'; font-size: 0.75rem;
-                    white-space: nowrap;">
-            <div style="display: inline-block; animation: marquee 40s linear infinite;">
-                {marquee_content} {marquee_content}
+        <div style="overflow:hidden; background:linear-gradient(90deg, #08080d, #0c0c14, #08080d);
+                    border-bottom:1px solid rgba(249,115,22,0.15);
+                    padding:0.45rem 0; font-family:'JetBrains Mono',monospace;
+                    white-space:nowrap;">
+            <div style="display:inline-block; animation:marquee 55s linear infinite;">
+                {marquee_content}{marquee_content}
             </div>
         </div>
         <style>
@@ -2460,6 +2514,6 @@ st.divider()
 st.markdown("""
 <div style="text-align: center; color: #9ca3af; font-size: 0.75rem;
             text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 0;">
-    Marango Terminal v3.0 | Quality × Regime × Market × AI | Bloomberg Terminal Style
+    Marango Terminal v4.0 | Quality × Regime × Momentum | Marango Fund
 </div>
 """, unsafe_allow_html=True)
