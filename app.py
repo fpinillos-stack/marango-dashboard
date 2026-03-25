@@ -336,31 +336,53 @@ def load_bridge_data():
 
 @st.cache_data(ttl=300)
 def get_market_indices():
-    """Get major market indices from Yahoo Finance"""
-    tickers_map = {
-        'S&P 500': '^GSPC',
-        'Nasdaq': '^IXIC',
-        'Dow Jones': '^DJI',
-        'VIX': '^VIX',
-        'EUR/USD': 'EURUSD=X',
-        '10Y Treasury': '^TNX'
+    """Get major market indices from Yahoo Finance — grouped by region"""
+    regions = {
+        'Americas': {
+            'S&P 500': '^GSPC',
+            'Nasdaq': '^IXIC',
+            'Dow Jones': '^DJI',
+            'S&P/TSX': '^GSPTSE',
+            'Bovespa': '^BVSP',
+        },
+        'EMEA': {
+            'Euro Stoxx 50': '^STOXX50E',
+            'FTSE 100': '^FTSE',
+            'DAX': '^GDAXI',
+            'CAC 40': '^FCHI',
+            'IBEX 35': '^IBEX',
+        },
+        'Asia/Pacific': {
+            'Nikkei 225': '^N225',
+            'Hang Seng': '^HSI',
+            'Shanghai': '000001.SS',
+            'ASX 200': '^AXJO',
+        },
+        'Macro': {
+            'VIX': '^VIX',
+            'EUR/USD': 'EURUSD=X',
+            '10Y Treasury': '^TNX',
+            'Gold': 'GC=F',
+            'Oil (WTI)': 'CL=F',
+        }
     }
 
-    fallback = {
-        'S&P 500': {'value': 6869.50, 'change': 34.25, 'change_pct': 0.50},
-        'Nasdaq': {'value': 19850.32, 'change': 125.67, 'change_pct': 0.64},
-        'Dow Jones': {'value': 43210.45, 'change': -89.23, 'change_pct': -0.21},
-        'VIX': {'value': 21.18, 'change': -0.52, 'change_pct': -2.40},
-        'EUR/USD': {'value': 1.0845, 'change': 0.0023, 'change_pct': 0.21},
-        '10Y Treasury': {'value': 4.45, 'change': 0.03, 'change_pct': 0.68}
-    }
+    all_tickers = {}
+    for region, tickers in regions.items():
+        for name, symbol in tickers.items():
+            all_tickers[name] = {'symbol': symbol, 'region': region}
+
+    fallback_result = {}
+    for name, info in all_tickers.items():
+        fallback_result[name] = {'value': 0, 'change': 0, 'change_pct': 0, 'region': info['region'], 'sparkline': []}
 
     try:
-        symbols = list(tickers_map.values())
+        symbols = [info['symbol'] for info in all_tickers.values()]
         data = yf.download(symbols, period='5d', group_by='ticker', progress=False)
 
         result = {}
-        for name, symbol in tickers_map.items():
+        for name, info in all_tickers.items():
+            symbol = info['symbol']
             try:
                 if len(symbols) > 1:
                     ticker_data = data[symbol]['Close'].dropna()
@@ -375,16 +397,18 @@ def get_market_indices():
                     result[name] = {
                         'value': round(current, 2),
                         'change': round(change, 2),
-                        'change_pct': round(change_pct, 2)
+                        'change_pct': round(change_pct, 2),
+                        'region': info['region'],
+                        'sparkline': ticker_data.tolist()
                     }
                 else:
-                    result[name] = fallback.get(name)
+                    result[name] = fallback_result.get(name)
             except Exception:
-                result[name] = fallback.get(name)
+                result[name] = fallback_result.get(name)
 
         return result
     except Exception:
-        return fallback
+        return fallback_result
 
 @st.cache_data(ttl=300)
 def get_sector_performance():
@@ -489,7 +513,7 @@ def load_score_history():
 
 @st.cache_data(ttl=300)
 def get_live_prices(tickers):
-    """Get live prices for portfolio holdings"""
+    """Get live prices + 5-day sparkline data for portfolio holdings"""
     if not tickers or len(tickers) == 0:
         return {}
 
@@ -512,9 +536,11 @@ def get_live_prices(tickers):
                     current = float(ticker_data.iloc[-1])
                     previous = float(ticker_data.iloc[-2])
                     change_pct = ((current - previous) / previous) * 100
+                    sparkline = ticker_data.tolist()
                     prices[ticker] = {
                         'price': round(current, 2),
-                        'change_pct': round(change_pct, 2)
+                        'change_pct': round(change_pct, 2),
+                        'sparkline': sparkline
                     }
             except Exception:
                 continue
@@ -683,56 +709,44 @@ def render_kpi_strip():
     hold_signals = len(df[(df['Quality_Score'] >= 70) & (df['Quality_Score'] < 85)])
     sell_signals = len(df[df['Quality_Score'] < 70])
 
+    avg_daily_change = 0
     if live_prices and 'Daily_Change' in df.columns:
         avg_daily_change = df['Daily_Change'].mean()
         portfolio_change = total_value * (avg_daily_change / 100)
-        delta_str = f"{'+' if portfolio_change >= 0 else ''}€{abs(portfolio_change)/1e3:.0f}K ({avg_daily_change:+.2f}%)"
+        delta_str = f"{'+' if portfolio_change >= 0 else ''}&euro;{abs(portfolio_change)/1e3:.0f}K ({avg_daily_change:+.2f}%)"
         delta_color = "normal" if portfolio_change >= 0 else "inverse"
     else:
-        delta_str = "CONNECTING"
+        delta_str = "CONNECTING..."
         delta_color = "off"
 
-    # KPI Cards
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # KPI Cards - Bloomberg style HTML
+    def kpi_card(label, value, delta, delta_positive=True, accent_color="#f97316"):
+        delta_color = "#10b981" if delta_positive else "#ef4444"
+        arrow = "&#9650;" if delta_positive else "&#9660;"
+        return f"""
+        <div style="background:rgba(15,15,25,0.9);border:1px solid rgba(255,255,255,0.05);
+                    border-top:2px solid {accent_color};border-radius:0.5rem;padding:1rem;
+                    text-align:center;backdrop-filter:blur(8px);">
+            <div style="color:#9ca3af;font-size:0.65rem;text-transform:uppercase;
+                        letter-spacing:0.1em;margin-bottom:0.4rem;font-family:JetBrains Mono;">{label}</div>
+            <div style="color:#e5e7eb;font-size:1.4rem;font-weight:700;
+                        font-family:JetBrains Mono;margin-bottom:0.3rem;">{value}</div>
+            <div style="color:{delta_color};font-size:0.75rem;font-family:JetBrains Mono;">
+                {arrow} {delta}</div>
+        </div>"""
 
-    with col1:
-        st.metric(
-            "PORTFOLIO",
-            f"€{total_value/1e6:.1f}M",
-            delta=delta_str,
-            delta_color=delta_color
-        )
+    regime_ok = regime['combined'] < 60
+    portfolio_positive = live_prices and avg_daily_change >= 0 if live_prices and 'Daily_Change' in df.columns else True
 
-    with col2:
-        st.metric(
-            "QUALITY",
-            f"{avg_quality:.1f}",
-            delta="/ 100"
-        )
+    cards_html = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;">'
+    cards_html += kpi_card("PORTFOLIO", f"&euro;{total_value/1e6:.1f}M", delta_str, portfolio_positive)
+    cards_html += kpi_card("QUALITY", f"{avg_quality:.1f}", "/ 100", avg_quality >= 75, "#06b6d4")
+    cards_html += kpi_card("REGIME", f"{regime['combined']:.0f}", f"{regime['combined'] - 60:+.0f} vs neutral", regime_ok, "#10b981" if regime_ok else "#ef4444")
+    cards_html += kpi_card("HOLDINGS", f"{num_holdings}", f"{buy_signals} BUY signals", True, "#06b6d4")
+    cards_html += kpi_card("SIGNALS", f"{buy_signals}B | {hold_signals}H | {sell_signals}S", f"{buy_signals} actionable", buy_signals > 0)
+    cards_html += '</div>'
 
-    with col3:
-        regime_delta = regime['combined'] - 60
-        regime_color = "normal" if regime['combined'] < 60 else "inverse"
-        st.metric(
-            "REGIME",
-            f"{regime['combined']:.0f}",
-            delta=f"{regime_delta:+.0f}",
-            delta_color=regime_color
-        )
-
-    with col4:
-        st.metric(
-            "HOLDINGS",
-            f"{num_holdings}",
-            delta=f"{buy_signals} BUY"
-        )
-
-    with col5:
-        st.metric(
-            "SIGNALS",
-            f"{buy_signals} BUY",
-            delta=f"{hold_signals} HOLD | {sell_signals} SELL"
-        )
+    st.markdown(cards_html, unsafe_allow_html=True)
 
 def display_bridge_tab():
     """Bridge: Quality x Regime"""
@@ -847,27 +861,42 @@ def display_markets_tab():
     indices = get_market_indices()
     sectors = get_sector_performance()
 
-    # Market Indices Grid (2x3)
-    st.markdown("<h3>MAJOR INDICES</h3>", unsafe_allow_html=True)
+    # Market Indices by Region
+    region_order = ['Americas', 'EMEA', 'Asia/Pacific', 'Macro']
+    for region in region_order:
+        region_indices = {k: v for k, v in indices.items() if v.get('region') == region}
+        if not region_indices:
+            continue
 
-    cols = st.columns(3)
-    index_names = ['S&P 500', 'Nasdaq', 'Dow Jones', 'VIX', 'EUR/USD', '10Y Treasury']
+        st.markdown(f"<h3>{region.upper()}</h3>", unsafe_allow_html=True)
 
-    for i, name in enumerate(index_names):
-        with cols[i % 3]:
-            data = indices[name]
+        # Build table data for this region
+        table_data = []
+        for name, data in region_indices.items():
+            chg = data.get('change_pct', 0)
+            color = '#10b981' if chg >= 0 else '#ef4444'
+            arrow = '▲' if chg >= 0 else '▼'
+            table_data.append({
+                'Index': name,
+                'Value': data.get('value', 0),
+                'Net Chg': data.get('change', 0),
+                '%Chg': chg,
+                'Sparkline': data.get('sparkline', [])
+            })
 
-            if name == 'VIX':
-                delta_color = "inverse" if data['change'] >= 0 else "normal"
-            else:
-                delta_color = "normal" if data['change'] >= 0 else "inverse"
-
-            st.metric(
-                name,
-                f"{data['value']:.2f}",
-                delta=f"{data['change']:+.2f} ({data['change_pct']:+.2f}%)",
-                delta_color=delta_color
-            )
+        region_df = pd.DataFrame(table_data)
+        st.dataframe(
+            region_df,
+            column_config={
+                "Index": st.column_config.TextColumn("Market", width="medium"),
+                "Value": st.column_config.NumberColumn("Value", format="%.2f"),
+                "Net Chg": st.column_config.NumberColumn("Net Chg", format="%+.2f"),
+                "%Chg": st.column_config.NumberColumn("%Chg", format="%+.2f%%"),
+                "Sparkline": st.column_config.LineChartColumn("5D Trend", width="small", y_min=None, y_max=None),
+            },
+            use_container_width=True,
+            hide_index=True
+        )
 
     st.divider()
 
@@ -1064,7 +1093,7 @@ def display_scores_tab():
     st.plotly_chart(fig, use_container_width=True)
 
 def display_holdings_tab():
-    """Holdings"""
+    """Holdings with sparklines and color-coded changes"""
     st.markdown("<h2>PORTFOLIO HOLDINGS</h2>", unsafe_allow_html=True)
 
     df = load_bloque1()
@@ -1077,6 +1106,7 @@ def display_holdings_tab():
         if live_prices:
             df['Live_Price'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('price', None) if isinstance(t, str) else None)
             df['Daily_Change'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('change_pct', 0) if isinstance(t, str) else 0)
+            df['5D_Trend'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('sparkline', []) if isinstance(t, str) else [])
 
     holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL', 'P1', 'P2', 'P3', 'P4', 'P5']
     col_config = {
@@ -1100,12 +1130,22 @@ def display_holdings_tab():
         holdings_cols.insert(3, 'Live_Price')
         holdings_cols.insert(4, 'Daily_Change')
         col_config["Live_Price"] = st.column_config.NumberColumn("Price ($)", format="%.2f")
-        col_config["Daily_Change"] = st.column_config.NumberColumn("Day %", format="%.2f%%")
+        col_config["Daily_Change"] = st.column_config.NumberColumn("Day %", format="%+.2f%%")
+    if '5D_Trend' in df.columns:
+        holdings_cols.insert(5 if 'Live_Price' in df.columns else 3, '5D_Trend')
+        col_config["5D_Trend"] = st.column_config.LineChartColumn(
+            "5D Trend",
+            width="small",
+            y_min=None,
+            y_max=None
+        )
 
     holdings_cols = [c for c in holdings_cols if c in df.columns]
 
+    # Timestamp and status
+    update_time = datetime.now().strftime('%H:%M:%S')
     if live_prices:
-        st.success(f"Live prices updated ({len(live_prices)}/{len(df)} tickers)")
+        st.caption(f"Live prices updated: {len(live_prices)}/{len(df)} tickers | Last refresh: {update_time}")
 
     st.dataframe(
         df[holdings_cols],
@@ -1113,6 +1153,43 @@ def display_holdings_tab():
         use_container_width=True,
         hide_index=True
     )
+
+    # Color-coded top movers section
+    if live_prices and 'Daily_Change' in df.columns:
+        st.divider()
+        st.markdown("<h3>TODAY'S MOVERS</h3>", unsafe_allow_html=True)
+
+        movers_df = df[df['Daily_Change'].notna() & (df['Daily_Change'] != 0)].copy()
+        if not movers_df.empty and 'Company' in movers_df.columns:
+            col_top, col_bottom = st.columns(2)
+            with col_top:
+                st.markdown("**TOP GAINERS**")
+                top5 = movers_df.nlargest(5, 'Daily_Change')
+                for _, row in top5.iterrows():
+                    ticker = row.get('Ticker', '')
+                    company = row.get('Company', '')[:20]
+                    chg = row['Daily_Change']
+                    st.markdown(
+                        f'<div style="display:flex;justify-content:space-between;padding:0.3rem 0;'
+                        f'border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.85rem;">'
+                        f'<span style="color:#e5e7eb;font-family:JetBrains Mono;">{ticker}</span>'
+                        f'<span style="color:#10b981;font-weight:600;">+{chg:.2f}%</span></div>',
+                        unsafe_allow_html=True
+                    )
+            with col_bottom:
+                st.markdown("**TOP LOSERS**")
+                bottom5 = movers_df.nsmallest(5, 'Daily_Change')
+                for _, row in bottom5.iterrows():
+                    ticker = row.get('Ticker', '')
+                    company = row.get('Company', '')[:20]
+                    chg = row['Daily_Change']
+                    st.markdown(
+                        f'<div style="display:flex;justify-content:space-between;padding:0.3rem 0;'
+                        f'border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.85rem;">'
+                        f'<span style="color:#e5e7eb;font-family:JetBrains Mono;">{ticker}</span>'
+                        f'<span style="color:#ef4444;font-weight:600;">{chg:.2f}%</span></div>',
+                        unsafe_allow_html=True
+                    )
 
 def display_ai_tab():
     """AI Analysis - Claude Powered"""
@@ -1293,14 +1370,14 @@ with st.sidebar:
 
     st.markdown(f"""
     <div style="font-size: 0.8rem; color: #9ca3af; line-height: 1.6;">
-        <strong>Quality × Regime</strong><br>
-        Investment System<br><br>
-        Features:<br>
-        • Real-time Market Data<br>
-        • Regime Analysis<br>
-        • Quality Scoring<br>
-        • Live Prices (Yahoo Finance)<br>
-        • Claude AI Analysis
+        <strong>Quality x Regime</strong><br>
+        Investment System v4.0<br><br>
+        <strong style="color:#f97316;">Data Sources:</strong><br>
+        Yahoo Finance (live)<br>
+        Excel (scoring)<br>
+        Claude AI (analysis)<br><br>
+        <strong style="color:#f97316;">Last Refresh:</strong><br>
+        {datetime.now().strftime('%H:%M:%S %Z')}
     </div>
     """, unsafe_allow_html=True)
 
@@ -1318,16 +1395,58 @@ if df.empty:
 
 # Terminal Header
 st.markdown("""
-<div style="padding: 1rem 1.5rem; background: rgba(15, 15, 25, 0.8);
+<div style="padding: 0.8rem 1.5rem; background: rgba(15, 15, 25, 0.9);
             border-bottom: 1px solid rgba(249, 115, 22, 0.5);
             border-top: 2px solid #f97316;
             font-family: 'JetBrains Mono'; font-size: 0.85rem;
             color: #e5e7eb; letter-spacing: 0.05em;">
-    MARANGO TERMINAL | v3.0 | Quality × Regime |
-    <span style="color: #10b981;">🟢 LIVE</span> |
+    MARANGO TERMINAL | v4.0 | Quality x Regime |
+    <span style="color: #10b981;">&#x1F7E2; LIVE</span> |
     Last: <span style="color: #f97316;">""" + datetime.now().strftime('%H:%M:%S') + """</span>
 </div>
 """, unsafe_allow_html=True)
+
+# Ticker Marquee
+def render_ticker_marquee():
+    """Render scrolling ticker tape like Bloomberg TV"""
+    try:
+        indices = get_market_indices()
+        ticker_items = []
+        for name, data in indices.items():
+            if data.get('value', 0) == 0:
+                continue
+            chg = data.get('change_pct', 0)
+            color = '#10b981' if chg >= 0 else '#ef4444'
+            arrow = '&#9650;' if chg >= 0 else '&#9660;'
+            ticker_items.append(
+                f'<span style="margin-right: 2rem;">'
+                f'<span style="color: #9ca3af;">{name}</span> '
+                f'<span style="color: #e5e7eb; font-weight: 600;">{data["value"]:.2f}</span> '
+                f'<span style="color: {color};">{arrow} {chg:+.2f}%</span>'
+                f'</span>'
+            )
+        marquee_content = ' '.join(ticker_items)
+        # Duplicate for seamless loop
+        st.markdown(f"""
+        <div style="overflow: hidden; background: rgba(10, 10, 15, 0.95);
+                    border-bottom: 1px solid rgba(255,255,255,0.03);
+                    padding: 0.4rem 0; font-family: 'JetBrains Mono'; font-size: 0.75rem;
+                    white-space: nowrap;">
+            <div style="display: inline-block; animation: marquee 40s linear infinite;">
+                {marquee_content} {marquee_content}
+            </div>
+        </div>
+        <style>
+            @keyframes marquee {{
+                0% {{ transform: translateX(0); }}
+                100% {{ transform: translateX(-50%); }}
+            }}
+        </style>
+        """, unsafe_allow_html=True)
+    except Exception:
+        pass
+
+render_ticker_marquee()
 
 st.markdown("")
 
