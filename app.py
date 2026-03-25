@@ -2013,6 +2013,102 @@ SECTOR_ETFS = {
     'Real Estate': 'XLRE'
 }
 
+# Top holdings per sector ETF (SPDR, ~15-25 largest per sector = covers ~80%+ of each ETF)
+SECTOR_HOLDINGS = {
+    'Information Technology': ['AAPL','MSFT','NVDA','AVGO','CRM','ADBE','AMD','CSCO','ACN','ORCL','INTC','TXN','QCOM','INTU','AMAT','NOW','IBM','ADI','LRCX','KLAC','SNPS','CDNS','PANW','MCHP','FTNT'],
+    'Health Care': ['LLY','UNH','JNJ','ABBV','MRK','TMO','ABT','DHR','AMGN','PFE','ISRG','BSX','SYK','MDT','GILD','VRTX','ELV','REGN','ZTS','BDX','CI','HCA','IDXX','EW','A'],
+    'Financials': ['BRK-B','JPM','V','MA','BAC','WFC','GS','SPGI','MS','AXP','BLK','C','SCHW','PGR','CB','MMC','ICE','CME','AON','MCO','MET','AFL','TRV','AIG','USB'],
+    'Consumer Discretionary': ['AMZN','TSLA','HD','MCD','NKE','LOW','BKNG','SBUX','TJX','ABNB','CMG','ORLY','MAR','GM','F','DHI','ROST','LEN','YUM','EBAY','GRMN','ULTA','DRI','POOL','BBY'],
+    'Communication Services': ['META','GOOGL','GOOG','NFLX','DIS','CMCSA','T','VZ','TMUS','CHTR','EA','TTWO','WBD','MTCH','LYV','OMC','PARA','FOXA','FOX','IPG','NWSA','NWS'],
+    'Industrials': ['GE','CAT','RTX','UNP','HON','BA','DE','LMT','UPS','ADP','ETN','ITW','NOC','WM','GD','CSX','EMR','NSC','PH','TDG','CARR','JCI','FAST','PCAR','CTAS'],
+    'Consumer Staples': ['PG','KO','PEP','COST','WMT','PM','MDLZ','MO','CL','TGT','KMB','GIS','SYY','ADM','STZ','HSY','KHC','KDP','CLX','MKC','SJM','CHD','CAG','HRL','K'],
+    'Energy': ['XOM','CVX','COP','EOG','SLB','MPC','PSX','PXD','VLO','OXY','WMB','HES','DVN','HAL','KMI','FANG','BKR','TRGP','OKE','CTRA','MRO','APA','EQT','DINO','MTDR'],
+    'Utilities': ['NEE','SO','DUK','CEG','SRE','AEP','D','EXC','XEL','ED','PEG','WEC','ES','AWK','EIX','DTE','FE','PPL','AEE','CMS','CNP','EVRG','ATO','NI','LNT'],
+    'Materials': ['LIN','APD','SHW','FCX','ECL','NEM','NUE','VMC','MLM','DOW','DD','PPG','CTVA','CF','IFF','CE','ALB','LYB','BALL','PKG','IP','EMN','FMC','MOS','SEE'],
+    'Real Estate': ['PLD','AMT','EQIX','CCI','PSA','SPG','O','WELL','DLR','VICI','AVB','SBAC','EQR','WY','ARE','VTR','MAA','ESS','UDR','HST','PEAK','CPT','KIM','REG','BXP']
+}
+
+@st.cache_data(ttl=3600)
+def get_sector_breadth():
+    """Calculate sector breadth: % of stocks above 200-DMA and 50-DMA for each sector"""
+    try:
+        all_tickers = []
+        for tickers in SECTOR_HOLDINGS.values():
+            all_tickers.extend(tickers)
+        all_tickers = list(set(all_tickers))
+
+        # Download 1 year of data for all stocks
+        data = yf.download(all_tickers, period='1y', progress=False)['Close']
+        if data.empty:
+            return None
+
+        results = []
+        for sector, tickers in SECTOR_HOLDINGS.items():
+            above_200 = 0
+            above_50 = 0
+            golden_cross = 0
+            valid = 0
+
+            for ticker in tickers:
+                if ticker not in data.columns:
+                    continue
+                prices = data[ticker].dropna()
+                if len(prices) < 200:
+                    continue
+                valid += 1
+                current = prices.iloc[-1]
+                ma200 = prices.rolling(200).mean().iloc[-1]
+                ma50 = prices.rolling(50).mean().iloc[-1]
+
+                if current > ma200:
+                    above_200 += 1
+                if current > ma50:
+                    above_50 += 1
+                if ma50 > ma200:
+                    golden_cross += 1
+
+            if valid == 0:
+                continue
+
+            pct_200 = (above_200 / valid) * 100
+            pct_50 = (above_50 / valid) * 100
+            pct_gc = (golden_cross / valid) * 100
+
+            # Pillar 1B score: Breadth & Volume Confirmation (from B4 framework)
+            if pct_200 >= 80:
+                breadth_score = 90
+                breadth_signal = 'Broad participation — sustainable rally'
+            elif pct_200 >= 60:
+                breadth_score = 60
+                breadth_signal = 'Healthy breadth — trend intact'
+            elif pct_200 >= 40:
+                breadth_score = 20
+                breadth_signal = 'Mixed signals — narrowing leadership'
+            elif pct_200 >= 20:
+                breadth_score = -25
+                breadth_signal = 'Deteriorating breadth — trend weakening'
+            else:
+                breadth_score = -75
+                breadth_signal = 'Washout — potential bottoming signal'
+
+            results.append({
+                'sector': sector,
+                'etf': SECTOR_ETFS.get(sector, ''),
+                'stocks_analyzed': valid,
+                'above_200dma': above_200,
+                'pct_above_200dma': round(pct_200, 1),
+                'above_50dma': above_50,
+                'pct_above_50dma': round(pct_50, 1),
+                'golden_cross_pct': round(pct_gc, 1),
+                'breadth_score': breadth_score,
+                'breadth_signal': breadth_signal
+            })
+
+        return sorted(results, key=lambda x: x['pct_above_200dma'], reverse=True)
+
+    except Exception as e:
+        return None
+
 @st.cache_data(ttl=3600)
 def get_sector_momentum():
     """Calculate sector relative strength vs S&P 500 over multiple timeframes"""
@@ -2210,6 +2306,110 @@ def display_momentum_tab():
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── SECTOR BREADTH ANALYSIS (Pillar 1B from B4 framework) ──
+    st.markdown("<h3>SECTOR BREADTH ANALYSIS</h3>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#9ca3af; font-size:0.85rem; margin-bottom:1rem;'>Full sector breadth: % of ALL stocks in each SPDR sector ETF above key moving averages. Based on ~25 largest holdings per sector.</div>", unsafe_allow_html=True)
+
+    breadth = get_sector_breadth()
+    if breadth:
+        # Overall market breadth summary
+        avg_200 = sum(b['pct_above_200dma'] for b in breadth) / len(breadth)
+        avg_50 = sum(b['pct_above_50dma'] for b in breadth) / len(breadth)
+        strong_sectors = len([b for b in breadth if b['pct_above_200dma'] >= 60])
+        weak_sectors = len([b for b in breadth if b['pct_above_200dma'] < 40])
+
+        col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+        for col, label, val, fmt, ref in [
+            (col_b1, 'AVG BREADTH 200-DMA', avg_200, f'{avg_200:.0f}%', 'of stocks'),
+            (col_b2, 'AVG BREADTH 50-DMA', avg_50, f'{avg_50:.0f}%', 'of stocks'),
+            (col_b3, 'STRONG SECTORS', strong_sectors, str(strong_sectors), '>60% above 200-DMA'),
+            (col_b4, 'WEAK SECTORS', weak_sectors, str(weak_sectors), '<40% above 200-DMA')
+        ]:
+            color = '#10b981' if (isinstance(val, (int,float)) and ((label.startswith('AVG') and val >= 60) or (label == 'STRONG SECTORS' and val >= 6))) else '#ef4444' if (isinstance(val, (int,float)) and ((label.startswith('AVG') and val < 40) or (label == 'WEAK SECTORS' and val >= 4))) else '#f59e0b'
+            with col:
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08);
+                            border-radius:8px; padding:0.8rem; text-align:center;">
+                    <div style="color:#9ca3af; font-size:0.75rem; text-transform:uppercase;">{label}</div>
+                    <div style="font-family:JetBrains Mono; font-size:1.5rem; font-weight:700; color:{color};">{fmt}</div>
+                    <div style="color:#6b7280; font-size:0.7rem;">{ref}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("")
+
+        # Breadth horizontal bar chart
+        b_sectors = [b['sector'].replace('Information Technology', 'Info Tech').replace('Consumer Discretionary', 'Cons Disc').replace('Consumer Staples', 'Cons Staples').replace('Communication Services', 'Comm Services') for b in breadth]
+        b_200 = [b['pct_above_200dma'] for b in breadth]
+        b_50 = [b['pct_above_50dma'] for b in breadth]
+
+        fig_b = go.Figure()
+        fig_b.add_trace(go.Bar(
+            y=b_sectors, x=b_200, orientation='h', name='Above 200-DMA',
+            marker=dict(color='rgba(249,115,22,0.8)'),
+            text=[f"{v:.0f}%" for v in b_200], textposition='inside',
+            textfont=dict(family='JetBrains Mono', size=10, color='white')
+        ))
+        fig_b.add_trace(go.Bar(
+            y=b_sectors, x=b_50, orientation='h', name='Above 50-DMA',
+            marker=dict(color='rgba(6,182,212,0.6)'),
+            text=[f"{v:.0f}%" for v in b_50], textposition='inside',
+            textfont=dict(family='JetBrains Mono', size=10, color='white')
+        ))
+        fig_b.add_vline(x=60, line_dash='dash', line_color='rgba(16,185,129,0.4)', line_width=1,
+                        annotation_text='Healthy (60%)', annotation_position='top',
+                        annotation=dict(font=dict(size=9, color='#10b981')))
+        fig_b.add_vline(x=40, line_dash='dash', line_color='rgba(239,68,68,0.4)', line_width=1,
+                        annotation_text='Weak (40%)', annotation_position='bottom',
+                        annotation=dict(font=dict(size=9, color='#ef4444')))
+        fig_b.update_layout(
+            template='plotly_dark', height=380, barmode='group',
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            margin=dict(l=10, r=30, t=30, b=10),
+            xaxis=dict(title='% of Stocks', range=[0, 105], gridcolor='rgba(255,255,255,0.05)'),
+            yaxis=dict(autorange='reversed'),
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(size=10))
+        )
+        st.plotly_chart(fig_b, use_container_width=True)
+
+        # Detailed breadth table
+        for b in breadth:
+            pct200 = b['pct_above_200dma']
+            pct50 = b['pct_above_50dma']
+            gc = b['golden_cross_pct']
+            score = b['breadth_score']
+
+            c200 = '#10b981' if pct200 >= 60 else '#ef4444' if pct200 < 40 else '#f59e0b'
+            c50 = '#10b981' if pct50 >= 60 else '#ef4444' if pct50 < 40 else '#f59e0b'
+            c_score = '#10b981' if score >= 50 else '#ef4444' if score < 0 else '#f59e0b'
+
+            st.markdown(f"""
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
+                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem;">
+                <span style="color:#e5e7eb; font-weight:600; flex:2;">{b['sector']} <span style="color:#6b7280; font-size:0.75rem;">({b['etf']} · {b['stocks_analyzed']} stocks)</span></span>
+                <span style="flex:1; text-align:center;"><span style="color:#9ca3af; font-size:0.75rem;">200-DMA:</span> <span style="color:{c200}; font-family:JetBrains Mono; font-weight:700;">{pct200:.0f}%</span></span>
+                <span style="flex:1; text-align:center;"><span style="color:#9ca3af; font-size:0.75rem;">50-DMA:</span> <span style="color:{c50}; font-family:JetBrains Mono; font-weight:700;">{pct50:.0f}%</span></span>
+                <span style="flex:1; text-align:center;"><span style="color:#9ca3af; font-size:0.75rem;">Golden Cross:</span> <span style="color:#06b6d4; font-family:JetBrains Mono;">{gc:.0f}%</span></span>
+                <span style="flex:1; text-align:right; color:{c_score}; font-family:JetBrains Mono; font-weight:700;">{score:+d}/100</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Pillar 1 composite score explanation
+        st.markdown("""
+        <div style="margin-top:1rem; padding:0.8rem; background:rgba(249,115,22,0.06); border:1px solid rgba(249,115,22,0.15); border-radius:8px;">
+            <div style="color:#f97316; font-weight:700; font-size:0.85rem; margin-bottom:0.3rem;">PILLAR 1 METHODOLOGY (Bloque 4)</div>
+            <div style="color:#9ca3af; font-size:0.8rem;">
+                Breadth Score: >80% above 200-DMA = +90 | 60-80% = +60 | 40-60% = +20 | 20-40% = -25 | <20% = -75<br>
+                Pillar 1 = (Relative Strength x 60%) + (Breadth x 40%) | Updated hourly from Yahoo Finance
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Loading sector breadth data...")
 
 
 def display_analytics_tab():
