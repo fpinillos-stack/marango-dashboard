@@ -248,7 +248,8 @@ def load_bloque1():
             'P2.Adj': 'P2',
             'P3.Adj': 'P3',
             'P4.Adj': 'P4',
-            'P5.Val': 'P5'
+            'P5.Val': 'P5',
+            'P6.Adj': 'P6'
         })
 
         return df
@@ -1000,8 +1001,8 @@ def display_markets_tab():
     st.plotly_chart(fig, use_container_width=True)
 
 def display_scores_tab():
-    """Scores: Company-by-company quality breakdown with expandable pillar details"""
-    st.markdown("<h2>QUALITY SCORES — PILLAR BREAKDOWN</h2>", unsafe_allow_html=True)
+    """Scores: Select a company to see quality radar chart and pillar breakdown"""
+    st.markdown("<h2>QUALITY SCORES</h2>", unsafe_allow_html=True)
 
     b1_df = load_bloque1()
 
@@ -1011,157 +1012,203 @@ def display_scores_tab():
 
     # Pillar definitions
     pillar_info = {
-        'P1': {'name': 'Profitability', 'metrics': ['ROE (%)', 'ROIC (%)', 'Net Margin (%)'], 'scores': ['S.ROE', 'S.ROIC', 'S.NM']},
-        'P2': {'name': 'Growth', 'metrics': ['Rev Gr 3Y (%)', 'EPS Gr 3Y (%)', 'Op Lev (x)'], 'scores': ['S.RevGr', 'S.EPSGr', 'S.OpLev']},
-        'P3': {'name': 'Financial Health', 'metrics': ['ND/EBITDA', 'Curr Ratio', 'Int Cov (x)'], 'scores': ['S.Debt', 'S.CR', 'S.IC']},
-        'P4': {'name': 'Cash Flow', 'metrics': ['FCF Mar (%)', 'FCF/NI (x)', 'Capex/Rev (%)'], 'scores': ['S.FCFm', 'S.FCFni', 'S.Capex']},
-        'P5': {'name': 'Valuation', 'metrics': ['Fwd P/E', 'EV/EBITDA', 'P/FCF'], 'scores': ['S.PE', 'S.EVEB', 'S.PFCF']},
+        'P1': {'name': 'Profitability', 'icon': '💰', 'metrics': ['ROE (%)', 'ROIC (%)', 'Net Margin (%)'], 'scores': ['S.ROE', 'S.ROIC', 'S.NM']},
+        'P2': {'name': 'Growth', 'icon': '📈', 'metrics': ['Rev Gr 3Y (%)', 'EPS Gr 3Y (%)', 'Op Lev (x)'], 'scores': ['S.RevGr', 'S.EPSGr', 'S.OpLev']},
+        'P3': {'name': 'Financial Health', 'icon': '🏦', 'metrics': ['ND/EBITDA', 'Curr Ratio', 'Int Cov (x)'], 'scores': ['S.Debt', 'S.CR', 'S.IC']},
+        'P4': {'name': 'Cash Flow', 'icon': '💵', 'metrics': ['FCF Mar (%)', 'FCF/NI (x)', 'Capex/Rev (%)'], 'scores': ['S.FCFm', 'S.FCFni', 'S.Capex']},
+        'P5': {'name': 'Valuation', 'icon': '🏷️', 'metrics': ['Fwd P/E', 'EV/EBITDA', 'P/FCF'], 'scores': ['S.PE', 'S.EVEB', 'S.PFCF']},
+        'P6': {'name': 'Shareholder Return', 'icon': '🎁', 'metrics': ['Div Yield (%)', 'Payout (%)', 'Buyback (%)'], 'scores': ['S.DivY', 'S.Payout', 'S.Buyb']},
     }
-    if 'P6.Adj' in b1_df.columns:
-        pillar_info['P6'] = {'name': 'Shareholder Return', 'metrics': ['Div Yield (%)', 'Payout (%)', 'Buyback (%)'], 'scores': ['S.DivY', 'S.Payout', 'S.Buyb']}
 
-    # Score Distribution chart at top
-    st.markdown("<h3>SCORE DISTRIBUTION</h3>", unsafe_allow_html=True)
+    # Build company list sorted by score
+    sorted_df = b1_df.sort_values('Quality_Score', ascending=False).reset_index(drop=True)
+    company_options = []
+    for _, row in sorted_df.iterrows():
+        ticker = row.get('Ticker', '')
+        company = row.get('Company', 'N/A')
+        score = row.get('Quality_Score', 0)
+        signal = row.get('SIGNAL', '')
+        label = f"{ticker} — {company}  [{score:.0f}]  {signal}" if ticker else f"{company}  [{score:.0f}]  {signal}"
+        company_options.append(label)
 
-    fig = go.Figure(data=[
-        go.Histogram(x=b1_df['Quality_Score'], nbinsx=20, marker=dict(color='#f97316'))
-    ])
-    fig.add_vline(x=b1_df['Quality_Score'].mean(), line_dash="dash", line_color="#06b6d4",
-                  annotation_text=f"Avg: {b1_df['Quality_Score'].mean():.1f}")
-    fig.update_layout(
-        template='plotly_dark', height=300,
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='JetBrains Mono', color='#e5e7eb'),
-        xaxis_title="Quality Score", yaxis_title="Count", showlegend=False,
-        margin=dict(l=0, r=0, t=30, b=40)
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # Company selector
+    selected = st.selectbox("Select a company", company_options, index=0, key="scores_company_select")
+
+    # Get selected row
+    selected_idx = company_options.index(selected)
+    row = sorted_df.iloc[selected_idx]
+
+    company = row.get('Company', 'N/A')
+    ticker = row.get('Ticker', '')
+    sector = row.get('GICS Sector', 'N/A')
+    score = row.get('Quality_Score', 0)
+    signal = row.get('SIGNAL', 'N/A')
+
+    # Score color
+    if score >= 80:
+        score_color = "#10b981"
+    elif score >= 65:
+        score_color = "#06b6d4"
+    elif score >= 50:
+        score_color = "#f59e0b"
+    else:
+        score_color = "#ef4444"
+
+    # Header card with company info
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg, rgba(249,115,22,0.08), rgba(6,182,212,0.05));
+                border:1px solid rgba(249,115,22,0.3); border-radius:12px; padding:1.2rem 1.5rem; margin:0.8rem 0 1.2rem 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+                <span style="font-family:JetBrains Mono; font-size:1.4rem; font-weight:700; color:#f97316;">{ticker}</span>
+                <span style="color:#9ca3af; font-size:1rem; margin-left:0.8rem;">{company}</span>
+                <br><span style="color:#6b7280; font-size:0.85rem;">{sector}</span>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-family:JetBrains Mono; font-size:2rem; font-weight:700; color:{score_color};">{score:.0f}</span>
+                <span style="color:#9ca3af; font-size:0.9rem;">/100</span>
+                <br><span style="font-size:1rem;">{signal}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Layout: Radar chart left, pillar bars right
+    col_radar, col_bars = st.columns([3, 2])
+
+    with col_radar:
+        # Radar chart with 6 quality pillars
+        pillar_keys = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6']
+        pillar_values = []
+        pillar_labels = []
+        for pk in pillar_keys:
+            val = row.get(pk, 0)
+            if pd.isna(val):
+                val = 0
+            pillar_values.append(float(val))
+            pillar_labels.append(pillar_info[pk]['name'])
+
+        # Close the polygon
+        radar_values = pillar_values + [pillar_values[0]]
+        radar_labels = pillar_labels + [pillar_labels[0]]
+
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=radar_values,
+            theta=radar_labels,
+            fill='toself',
+            fillcolor='rgba(249,115,22,0.2)',
+            line=dict(color='#f97316', width=2.5),
+            marker=dict(size=8, color='#f97316'),
+            name=company[:20]
+        ))
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 100],
+                               gridcolor='rgba(255,255,255,0.08)',
+                               tickvals=[20, 40, 60, 80, 100],
+                               tickfont=dict(size=9, color='#6b7280')),
+                angularaxis=dict(gridcolor='rgba(255,255,255,0.1)',
+                                tickfont=dict(size=11, color='#e5e7eb')),
+                bgcolor='rgba(0,0,0,0)'
+            ),
+            template='plotly_dark', height=420,
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            margin=dict(l=60, r=60, t=40, b=40),
+            showlegend=False
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+    with col_bars:
+        # Horizontal bar chart of pillars
+        st.markdown("<h4 style='margin-top:0;'>PILLAR SCORES</h4>", unsafe_allow_html=True)
+        for pk in pillar_keys:
+            pinfo = pillar_info[pk]
+            val = row.get(pk, 0)
+            if pd.isna(val):
+                val = 0
+            val = float(val)
+            # Color based on value
+            if val >= 80:
+                bar_color = "#10b981"
+            elif val >= 60:
+                bar_color = "#06b6d4"
+            elif val >= 40:
+                bar_color = "#f59e0b"
+            else:
+                bar_color = "#ef4444"
+            pct = min(val, 100)
+            st.markdown(f"""
+            <div style="margin-bottom:0.6rem;">
+                <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.2rem;">
+                    <span style="color:#e5e7eb;">{pinfo['icon']} {pinfo['name']}</span>
+                    <span style="color:{bar_color}; font-weight:700; font-family:JetBrains Mono;">{val:.0f}</span>
+                </div>
+                <div style="background:rgba(255,255,255,0.06); border-radius:4px; height:14px; overflow:hidden;">
+                    <div style="background:{bar_color}; width:{pct}%; height:100%; border-radius:4px; transition:width 0.3s;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.divider()
 
-    # Filter controls
-    st.markdown("<h3>COMPANY SCORES</h3>", unsafe_allow_html=True)
+    # Detailed sub-scores by pillar
+    st.markdown("<h3>DETAIL — SUB-SCORES</h3>", unsafe_allow_html=True)
 
-    col_filter1, col_filter2 = st.columns([2, 1])
-    with col_filter1:
-        sort_by = st.selectbox("Sort by", ["Quality Score (High→Low)", "Quality Score (Low→High)", "Company (A→Z)"], label_visibility="collapsed")
-    with col_filter2:
-        signal_filter = st.selectbox("Filter", ["All Signals", "BUY only", "HOLD only", "SELL only"], label_visibility="collapsed")
+    detail_cols = st.columns(3)
+    for i, pk in enumerate(pillar_keys):
+        pinfo = pillar_info[pk]
+        col_idx = i % 3
+        with detail_cols[col_idx]:
+            p_val = row.get(pk, 0)
+            if pd.isna(p_val):
+                p_val = 0
+            if p_val >= 80:
+                p_color = "#10b981"
+            elif p_val >= 60:
+                p_color = "#06b6d4"
+            elif p_val >= 40:
+                p_color = "#f59e0b"
+            else:
+                p_color = "#ef4444"
 
-    # Apply sorting
-    if "High→Low" in sort_by:
-        display_df = b1_df.sort_values('Quality_Score', ascending=False)
-    elif "Low→High" in sort_by:
-        display_df = b1_df.sort_values('Quality_Score', ascending=True)
-    else:
-        display_df = b1_df.sort_values('Company')
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+                        border-radius:8px; padding:0.8rem; margin-bottom:0.8rem;">
+                <div style="font-weight:700; color:{p_color}; font-size:0.95rem; margin-bottom:0.5rem;">
+                    {pinfo['icon']} {pinfo['name']} — <span style="font-family:JetBrains Mono;">{p_val:.0f}/100</span>
+                </div>
+            """, unsafe_allow_html=True)
 
-    # Apply filter
-    if signal_filter != "All Signals" and 'SIGNAL' in display_df.columns:
-        filter_key = signal_filter.replace(" only", "").strip()
-        display_df = display_df[display_df['SIGNAL'].str.contains(filter_key, case=False, na=False)]
+            for metric, score_col in zip(pinfo['metrics'], pinfo['scores']):
+                s_val = row.get(score_col, None)
+                m_val = row.get(metric, None)
+                s_display = f"{s_val:.0f}" if s_val is not None and pd.notna(s_val) else "—"
+                m_display = f"{m_val:.1f}" if m_val is not None and pd.notna(m_val) else "—"
+                # Sub-score color
+                if s_val is not None and pd.notna(s_val):
+                    if float(s_val) >= 75:
+                        s_color = "#10b981"
+                    elif float(s_val) >= 50:
+                        s_color = "#06b6d4"
+                    elif float(s_val) >= 25:
+                        s_color = "#f59e0b"
+                    else:
+                        s_color = "#ef4444"
+                else:
+                    s_color = "#6b7280"
 
-    st.caption(f"Showing {len(display_df)} companies")
+                st.markdown(f"""
+                <div style="display:flex; justify-content:space-between; padding:0.15rem 0; font-size:0.82rem;
+                            border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <span style="color:#9ca3af;">{metric}</span>
+                    <span><span style="color:#6b7280; margin-right:0.5rem;">{m_display}</span>
+                    <span style="color:{s_color}; font-weight:600; font-family:JetBrains Mono;">{s_display}</span></span>
+                </div>
+                """, unsafe_allow_html=True)
 
-    # Company expanders
-    for _, row in display_df.iterrows():
-        company = row.get('Company', 'N/A')
-        sector = row.get('GICS Sector', 'N/A')
-        score = row.get('Quality_Score', 0)
-        signal = row.get('SIGNAL', 'N/A') if 'SIGNAL' in row.index else 'N/A'
-        ticker = row.get('Ticker', '') if 'Ticker' in row.index else ''
-
-        # Color based on score
-        if score >= 80:
-            score_color = "#10b981"
-        elif score >= 65:
-            score_color = "#06b6d4"
-        elif score >= 50:
-            score_color = "#f59e0b"
-        else:
-            score_color = "#ef4444"
-
-        header_text = f"{company}  |  {score:.0f}/100  |  {signal}"
-        if ticker:
-            header_text = f"{ticker} — {company}  |  {score:.0f}/100  |  {signal}"
-
-        with st.expander(header_text):
-            # Top row: score gauge + info
-            col_gauge, col_info = st.columns([1, 2])
-
-            with col_gauge:
-                fig = go.Figure(go.Indicator(
-                    mode="gauge+number",
-                    value=score,
-                    domain={'x': [0, 1], 'y': [0, 1]},
-                    gauge={
-                        'axis': {'range': [0, 100]},
-                        'bar': {'color': score_color},
-                        'steps': [
-                            {'range': [0, 50], 'color': 'rgba(239,68,68,0.15)'},
-                            {'range': [50, 65], 'color': 'rgba(245,158,11,0.15)'},
-                            {'range': [65, 80], 'color': 'rgba(6,182,212,0.15)'},
-                            {'range': [80, 100], 'color': 'rgba(16,185,129,0.15)'}
-                        ]
-                    }
-                ))
-                fig.update_layout(
-                    template='plotly_dark', height=200,
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(family='JetBrains Mono', color='#e5e7eb'),
-                    margin=dict(l=20, r=20, t=30, b=0)
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-            with col_info:
-                # Radar chart of quality pillars
-                pillar_cols = [c for c in ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] if c in row.index and pd.notna(row.get(c))]
-                if pillar_cols:
-                    pillar_values = [float(row[p]) for p in pillar_cols]
-                    pillar_labels = [pillar_info.get(p, {}).get('name', p) for p in pillar_cols]
-                    # Close the radar polygon
-                    radar_values = pillar_values + [pillar_values[0]]
-                    radar_labels = pillar_labels + [pillar_labels[0]]
-
-                    fig_radar = go.Figure()
-                    fig_radar.add_trace(go.Scatterpolar(
-                        r=radar_values,
-                        theta=radar_labels,
-                        fill='toself',
-                        fillcolor='rgba(249,115,22,0.15)',
-                        line=dict(color='#f97316', width=2),
-                        marker=dict(size=6, color='#f97316'),
-                        name=company[:15]
-                    ))
-                    max_val = max(pillar_values) if pillar_values else 20
-                    fig_radar.update_layout(
-                        polar=dict(
-                            radialaxis=dict(visible=True, range=[0, max_val * 1.2],
-                                           gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=9, color='#9ca3af')),
-                            angularaxis=dict(gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=10, color='#e5e7eb')),
-                            bgcolor='rgba(0,0,0,0)'
-                        ),
-                        template='plotly_dark', height=280,
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        font=dict(family='JetBrains Mono', color='#e5e7eb'),
-                        margin=dict(l=40, r=40, t=30, b=30),
-                        showlegend=False
-                    )
-                    st.plotly_chart(fig_radar, use_container_width=True)
-
-            # Pillar detail metrics below the chart
-            st.markdown("**DETAIL**")
-            detail_cols = st.columns(len(pillar_info))
-            for i, (pkey, pinfo) in enumerate(pillar_info.items()):
-                with detail_cols[i]:
-                    p_score = row.get(pkey, None)
-                    p_display = f"{p_score:.0f}" if isinstance(p_score, (int, float)) and pd.notna(p_score) else "—"
-                    p_color = '#10b981' if isinstance(p_score, (int, float)) and p_score >= 15 else '#06b6d4' if isinstance(p_score, (int, float)) and p_score >= 10 else '#f59e0b' if isinstance(p_score, (int, float)) and p_score >= 5 else '#ef4444'
-                    st.markdown(f"**{pinfo['name']}**: <span style='color:{p_color};font-weight:700;'>{p_display}</span>", unsafe_allow_html=True)
-                    for metric, score_col in zip(pinfo['metrics'], pinfo['scores']):
-                        val = row.get(metric, None)
-                        if val is not None and pd.notna(val):
-                            st.caption(f"{metric}: {val:.1f}")
+            st.markdown("</div>", unsafe_allow_html=True)
 
 def display_holdings_tab():
     """Holdings with sparklines and color-coded changes"""
