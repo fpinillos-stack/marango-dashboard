@@ -943,7 +943,7 @@ def display_bridge_tab():
 
         cb_active = '🚨' in str(regime.get('circuit_breaker', ''))
         cb_label = "CIRCUIT BREAKER"
-        cb_value = "🔴 ACTIVE" if cb_active else "🟢 NORMAL"
+        cb_value = "ACTIVE" if cb_active else "NORMAL"
         st.metric(cb_label, cb_value)
 
     st.divider()
@@ -1043,12 +1043,12 @@ def display_scores_tab():
 
     # Pillar definitions
     pillar_info = {
-        'P1': {'name': 'Profitability', 'icon': '💰', 'metrics': ['ROE (%)', 'ROIC (%)', 'Net Margin (%)'], 'scores': ['S.ROE', 'S.ROIC', 'S.NM']},
-        'P2': {'name': 'Growth', 'icon': '📈', 'metrics': ['Rev Gr 3Y (%)', 'EPS Gr 3Y (%)', 'Op Lev (x)'], 'scores': ['S.RevGr', 'S.EPSGr', 'S.OpLev']},
-        'P3': {'name': 'Financial Health', 'icon': '🏦', 'metrics': ['ND/EBITDA', 'Curr Ratio', 'Int Cov (x)'], 'scores': ['S.Debt', 'S.CR', 'S.IC']},
-        'P4': {'name': 'Cash Flow', 'icon': '💵', 'metrics': ['FCF Mar (%)', 'FCF/NI (x)', 'Capex/Rev (%)'], 'scores': ['S.FCFm', 'S.FCFni', 'S.Capex']},
-        'P5': {'name': 'Valuation', 'icon': '🏷️', 'metrics': ['Fwd P/E', 'EV/EBITDA', 'P/FCF'], 'scores': ['S.PE', 'S.EVEB', 'S.PFCF']},
-        'P6': {'name': 'Shareholder Return', 'icon': '🎁', 'metrics': ['Div Yield (%)', 'Payout (%)', 'Buyback (%)'], 'scores': ['S.DivY', 'S.Payout', 'S.Buyb']},
+        'P1': {'name': 'Profitability', 'icon': 'P1', 'metrics': ['ROE (%)', 'ROIC (%)', 'Net Margin (%)'], 'scores': ['S.ROE', 'S.ROIC', 'S.NM']},
+        'P2': {'name': 'Growth', 'icon': 'P2', 'metrics': ['Rev Gr 3Y (%)', 'EPS Gr 3Y (%)', 'Op Lev (x)'], 'scores': ['S.RevGr', 'S.EPSGr', 'S.OpLev']},
+        'P3': {'name': 'Financial Health', 'icon': 'P3', 'metrics': ['ND/EBITDA', 'Curr Ratio', 'Int Cov (x)'], 'scores': ['S.Debt', 'S.CR', 'S.IC']},
+        'P4': {'name': 'Cash Flow', 'icon': 'P4', 'metrics': ['FCF Mar (%)', 'FCF/NI (x)', 'Capex/Rev (%)'], 'scores': ['S.FCFm', 'S.FCFni', 'S.Capex']},
+        'P5': {'name': 'Valuation', 'icon': 'P5', 'metrics': ['Fwd P/E', 'EV/EBITDA', 'P/FCF'], 'scores': ['S.PE', 'S.EVEB', 'S.PFCF']},
+        'P6': {'name': 'Shareholder Return', 'icon': 'P6', 'metrics': ['Div Yield (%)', 'Payout (%)', 'Buyback (%)'], 'scores': ['S.DivY', 'S.Payout', 'S.Buyb']},
     }
 
     # Build company list sorted by score
@@ -1124,32 +1124,55 @@ def display_scores_tab():
         radar_labels = pillar_labels + [pillar_labels[0]]
 
         fig_radar = go.Figure()
+
+        # Portfolio average benchmark (subtle)
+        avg_values = []
+        for pk in pillar_keys:
+            avg_v = b1_df[pk].mean() if pk in b1_df.columns else 50
+            avg_values.append(float(avg_v))
+        avg_values_r = avg_values + [avg_values[0]]
+
+        fig_radar.add_trace(go.Scatterpolar(
+            r=avg_values_r,
+            theta=radar_labels,
+            fill='toself',
+            fillcolor='rgba(107,114,128,0.05)',
+            line=dict(color='rgba(107,114,128,0.3)', width=1, dash='dot'),
+            marker=dict(size=0),
+            name='Portfolio Avg',
+            hoverinfo='skip'
+        ))
+
+        # Company data
         fig_radar.add_trace(go.Scatterpolar(
             r=radar_values,
             theta=radar_labels,
             fill='toself',
-            fillcolor='rgba(249,115,22,0.2)',
-            line=dict(color='#f97316', width=2.5),
-            marker=dict(size=8, color='#f97316'),
+            fillcolor='rgba(249,115,22,0.12)',
+            line=dict(color='#f97316', width=2),
+            marker=dict(size=6, color='#f97316', line=dict(color='#0a0a0f', width=1)),
             name=company[:20]
         ))
         fig_radar.update_layout(
             polar=dict(
                 radialaxis=dict(visible=True, range=[0, 100],
-                               gridcolor='rgba(255,255,255,0.08)',
-                               tickvals=[20, 40, 60, 80, 100],
-                               tickfont=dict(size=9, color='#6b7280')),
-                angularaxis=dict(gridcolor='rgba(255,255,255,0.1)',
-                                tickfont=dict(size=11, color='#e5e7eb')),
+                               gridcolor='rgba(255,255,255,0.06)',
+                               tickvals=[25, 50, 75, 100],
+                               tickfont=dict(size=8, color='#4b5563'),
+                               linecolor='rgba(255,255,255,0.03)'),
+                angularaxis=dict(gridcolor='rgba(255,255,255,0.08)',
+                                tickfont=dict(size=10, color='#d1d5db'),
+                                linecolor='rgba(255,255,255,0.05)'),
                 bgcolor='rgba(0,0,0,0)'
             ),
             template='plotly_dark', height=420,
             paper_bgcolor='rgba(0,0,0,0)',
             font=dict(family='JetBrains Mono', color='#e5e7eb'),
-            margin=dict(l=60, r=60, t=40, b=40),
+            margin=dict(l=60, r=60, t=30, b=30),
             showlegend=False
         )
         st.plotly_chart(fig_radar, use_container_width=True)
+        st.caption("Solid = company  |  Dotted = portfolio average")
 
     with col_bars:
         # Horizontal bar chart of pillars
@@ -1173,7 +1196,7 @@ def display_scores_tab():
             st.markdown(f"""
             <div style="margin-bottom:0.6rem;">
                 <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.2rem;">
-                    <span style="color:#e5e7eb;">{pinfo['icon']} {pinfo['name']}</span>
+                    <span style="color:#e5e7eb;">{pinfo['name']}</span>
                     <span style="color:{bar_color}; font-weight:700; font-family:JetBrains Mono;">{val:.0f}</span>
                 </div>
                 <div style="background:rgba(255,255,255,0.06); border-radius:4px; height:14px; overflow:hidden;">
@@ -1208,7 +1231,7 @@ def display_scores_tab():
             <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
                         border-radius:8px; padding:0.8rem; margin-bottom:0.8rem;">
                 <div style="font-weight:700; color:{p_color}; font-size:0.95rem; margin-bottom:0.5rem;">
-                    {pinfo['icon']} {pinfo['name']} — <span style="font-family:JetBrains Mono;">{p_val:.0f}/100</span>
+                    {pinfo['name']} — <span style="font-family:JetBrains Mono;">{p_val:.0f}/100</span>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -1331,9 +1354,9 @@ def display_regime_tab():
     col1, col2, col3 = st.columns(3)
 
     scores = [
-        ('Sentiment', data.get('sentiment_score', 0), data.get('sentiment_regime', ''), '🌐'),
-        ('Technical', data.get('tech_score', 0), data.get('tech_regime', ''), '📊'),
-        ('Liquidity', data.get('liq_score', 0), data.get('liq_regime', ''), '💧'),
+        ('Sentiment', data.get('sentiment_score', 0), data.get('sentiment_regime', ''), 'SNT'),
+        ('Technical', data.get('tech_score', 0), data.get('tech_regime', ''), 'TEC'),
+        ('Liquidity', data.get('liq_score', 0), data.get('liq_regime', ''), 'LIQ'),
     ]
 
     for col, (name, score_val, regime_text, icon) in zip([col1, col2, col3], scores):
@@ -1350,25 +1373,27 @@ def display_regime_tab():
             fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=score_val,
-                title={'text': f"{icon} {name}", 'font': {'size': 14, 'color': '#e5e7eb'}},
+                title={'text': name.upper(), 'font': {'size': 12, 'color': '#9ca3af', 'family': 'JetBrains Mono'}},
+                number={'font': {'color': s_color, 'family': 'JetBrains Mono', 'size': 28}},
                 gauge={
-                    'axis': {'range': [0, 100], 'tickcolor': '#6b7280'},
-                    'bar': {'color': s_color},
-                    'bgcolor': 'rgba(255,255,255,0.03)',
+                    'axis': {'range': [0, 100], 'tickcolor': '#4b5563', 'tickwidth': 1,
+                             'tickfont': {'size': 9, 'color': '#4b5563'}},
+                    'bar': {'color': s_color, 'thickness': 0.75},
+                    'bgcolor': 'rgba(255,255,255,0.02)',
+                    'borderwidth': 0,
                     'steps': [
-                        {'range': [0, 45], 'color': 'rgba(239,68,68,0.1)'},
-                        {'range': [45, 55], 'color': 'rgba(245,158,11,0.1)'},
-                        {'range': [55, 70], 'color': 'rgba(6,182,212,0.1)'},
-                        {'range': [70, 100], 'color': 'rgba(16,185,129,0.1)'}
+                        {'range': [0, 45], 'color': 'rgba(239,68,68,0.06)'},
+                        {'range': [45, 55], 'color': 'rgba(245,158,11,0.06)'},
+                        {'range': [55, 70], 'color': 'rgba(6,182,212,0.06)'},
+                        {'range': [70, 100], 'color': 'rgba(16,185,129,0.06)'}
                     ]
-                },
-                number={'font': {'color': s_color, 'family': 'JetBrains Mono'}}
+                }
             ))
             fig.update_layout(
                 template='plotly_dark', height=200,
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(family='JetBrains Mono', color='#e5e7eb'),
-                margin=dict(l=20, r=20, t=40, b=10)
+                margin=dict(l=15, r=15, t=35, b=5)
             )
             st.plotly_chart(fig, use_container_width=True)
             st.markdown(f"<div style='text-align:center; color:#9ca3af; font-size:0.8rem; margin-top:-0.5rem;'>{regime_text}</div>", unsafe_allow_html=True)
@@ -1419,10 +1444,10 @@ def display_regime_tab():
     col_left, col_right = st.columns(2)
 
     with col_left:
-        render_indicator_table("🌐 SENTIMENT & SYSTEMIC RISK", data.get('sentiment_indicators', []))
+        render_indicator_table("SENTIMENT & SYSTEMIC RISK", data.get('sentiment_indicators', []))
         st.markdown("")
         # Technical as simpler table
-        st.markdown("<h3>📊 TECHNICAL INDICATORS — S&P 500</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>TECHNICAL INDICATORS — S&P 500</h3>", unsafe_allow_html=True)
         for ind in data.get('tech_indicators', []):
             score_val = ind.get('score', 0)
             if isinstance(score_val, (int, float)) and not pd.isna(score_val):
@@ -1453,12 +1478,12 @@ def display_regime_tab():
             """, unsafe_allow_html=True)
 
     with col_right:
-        render_indicator_table("💧 LIQUIDITY MONITOR", data.get('liq_indicators', []))
+        render_indicator_table("LIQUIDITY MONITOR", data.get('liq_indicators', []))
 
     st.divider()
 
     # ── RISK-OFF TRIGGERS ──────────────────────────────────────
-    st.markdown("<h3>🚨 RISK-OFF TRIGGERS</h3>", unsafe_allow_html=True)
+    st.markdown("<h3>RISK-OFF TRIGGERS</h3>", unsafe_allow_html=True)
 
     trigger_cols = st.columns(3)
     for i, trig in enumerate(data.get('triggers', [])):
@@ -1486,7 +1511,7 @@ def display_regime_tab():
     st.divider()
 
     # ── SECTOR ROTATION ────────────────────────────────────────
-    st.markdown("<h3>🔄 SECTOR ROTATION SIGNALS</h3>", unsafe_allow_html=True)
+    st.markdown("<h3>SECTOR ROTATION SIGNALS</h3>", unsafe_allow_html=True)
 
     for sec in data.get('sectors', []):
         signal = sec.get('signal', '')
@@ -1510,7 +1535,7 @@ def display_regime_tab():
     st.markdown(f"""
     <div style="background:rgba(249,115,22,0.06); border:1px solid rgba(249,115,22,0.2);
                 border-radius:8px; padding:1rem; margin-top:1rem;">
-        <div style="font-weight:700; color:#f97316; margin-bottom:0.5rem;">🎯 CURRENT POSITIONING</div>
+        <div style="font-weight:700; color:#f97316; margin-bottom:0.5rem;">CURRENT POSITIONING</div>
         <div style="color:#10b981; font-size:0.9rem; margin-bottom:0.2rem;"><b>FAVOR:</b> {data.get('favor', '')}</div>
         <div style="color:#f59e0b; font-size:0.9rem; margin-bottom:0.2rem;"><b>NEUTRAL:</b> {data.get('neutral_sectors', '')}</div>
         <div style="color:#ef4444; font-size:0.9rem; margin-bottom:0.2rem;"><b>AVOID:</b> {data.get('avoid', '')}</div>
@@ -1697,19 +1722,19 @@ def display_momentum_tab():
         weight = (holdings / total_holdings * 100) if total_holdings > 0 else 0
 
         if score > 5:
-            signal = '🟢 STRONG TAILWIND'
+            signal = 'STRONG TAILWIND'
             sig_color = '#10b981'
         elif score > 2:
-            signal = '🟢 TAILWIND'
+            signal = 'TAILWIND'
             sig_color = '#10b981'
         elif score > -2:
-            signal = '⚠️ NEUTRAL'
+            signal = 'NEUTRAL'
             sig_color = '#f59e0b'
         elif score > -5:
-            signal = '🔴 HEADWIND'
+            signal = 'HEADWIND'
             sig_color = '#ef4444'
         else:
-            signal = '🔴 STRONG HEADWIND'
+            signal = 'STRONG HEADWIND'
             sig_color = '#ef4444'
 
         def fmt_ret(val):
@@ -2210,8 +2235,8 @@ def display_ai_tab():
             for ticker, res in results.items():
                 if "error" not in res:
                     signal_emoji = {
-                        "STRONG BUY": "🚀", "BUY": "✅",
-                        "HOLD": "⚠️", "UNDERWEIGHT": "🟠", "SELL": "🔴"
+                        "STRONG BUY": "+", "BUY": "+",
+                        "HOLD": "=", "UNDERWEIGHT": "-", "SELL": "-"
                     }
                     sig = res.get("signal", "N/A")
                     emoji = signal_emoji.get(sig, "")
