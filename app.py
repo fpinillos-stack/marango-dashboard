@@ -2057,13 +2057,12 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "BRIDGE",
     "MARKETS",
     "REGIME",
     "SCORES",
-    "HOLDINGS",
-    "AI"
+    "HOLDINGS"
 ])
 
 with tab1:
@@ -2099,13 +2098,6 @@ with tab5:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab6:
-    try:
-        display_ai_tab()
-    except Exception as e:
-        st.error(f"AI tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
