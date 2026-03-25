@@ -1217,6 +1217,126 @@ def display_scores_tab():
 
             st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── SECTOR TREEMAP ──────────────────────────────────────────
+    st.divider()
+    st.markdown("<h3>SECTOR TREEMAP</h3>", unsafe_allow_html=True)
+    st.caption("Size = Quality Score  |  Color = Signal")
+
+    treemap_df = b1_df[['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL']].copy()
+    treemap_df['Company'] = treemap_df['Company'].apply(lambda x: safe_str(x, 'N/A'))
+    treemap_df['GICS Sector'] = treemap_df['GICS Sector'].apply(lambda x: safe_str(x, 'Other'))
+    treemap_df['SIGNAL'] = treemap_df['SIGNAL'].apply(lambda x: safe_str(x, 'N/A'))
+    treemap_df['Quality_Score'] = treemap_df['Quality_Score'].fillna(0)
+
+    # Map signals to numeric for coloring
+    signal_color_map = {
+        '🚀 STRONG BUY': 2, '✅ BUY': 1, '⚠️ HOLD': 0,
+        '🟠 UNDERWEIGHT': -1, '🔴 SELL': -2
+    }
+    treemap_df['Signal_Num'] = treemap_df['SIGNAL'].map(signal_color_map).fillna(0)
+
+    # Short label for display
+    treemap_df['Label'] = treemap_df['Company'].apply(lambda x: x[:18] if len(x) > 18 else x)
+
+    fig_tree = px.treemap(
+        treemap_df,
+        path=['GICS Sector', 'Label'],
+        values='Quality_Score',
+        color='Signal_Num',
+        color_continuous_scale=['#ef4444', '#f97316', '#6b7280', '#06b6d4', '#10b981'],
+        range_color=[-2, 2],
+        hover_data={'Company': True, 'Quality_Score': ':.0f', 'SIGNAL': True, 'Signal_Num': False, 'Label': False}
+    )
+    fig_tree.update_layout(
+        template='plotly_dark', height=500,
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='JetBrains Mono', color='#e5e7eb'),
+        margin=dict(l=5, r=5, t=30, b=5),
+        coloraxis_showscale=False
+    )
+    fig_tree.update_traces(
+        textinfo='label+value',
+        textfont=dict(size=11),
+        hovertemplate='<b>%{customdata[0]}</b><br>Score: %{customdata[1]:.0f}<br>Signal: %{customdata[2]}<extra></extra>'
+    )
+    st.plotly_chart(fig_tree, use_container_width=True)
+
+    # ── PILLAR CORRELATION HEATMAP ──────────────────────────────
+    st.divider()
+    st.markdown("<h3>PILLAR CORRELATION MATRIX</h3>", unsafe_allow_html=True)
+    st.caption("How quality pillars correlate across the portfolio (Pearson r)")
+
+    pillar_cols_available = [p for p in ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] if p in b1_df.columns]
+    pillar_names = {
+        'P1': 'Profitability', 'P2': 'Growth', 'P3': 'Fin. Health',
+        'P4': 'Cash Flow', 'P5': 'Valuation', 'P6': 'Shareholder Ret.'
+    }
+
+    if len(pillar_cols_available) >= 3:
+        corr_df = b1_df[pillar_cols_available].corr()
+        corr_labels = [pillar_names.get(c, c) for c in corr_df.columns]
+
+        # Build heatmap with annotations
+        z_vals = corr_df.values
+        annotations = []
+        for i in range(len(z_vals)):
+            for j in range(len(z_vals[0])):
+                val = z_vals[i][j]
+                text_color = '#ffffff' if abs(val) > 0.4 else '#9ca3af'
+                annotations.append(dict(
+                    x=j, y=i, text=f"{val:.2f}",
+                    font=dict(size=12, color=text_color, family='JetBrains Mono'),
+                    showarrow=False
+                ))
+
+        fig_heat = go.Figure(data=go.Heatmap(
+            z=z_vals,
+            x=corr_labels,
+            y=corr_labels,
+            colorscale=[
+                [0, '#ef4444'],
+                [0.25, '#f97316'],
+                [0.5, '#1e1e2e'],
+                [0.75, '#06b6d4'],
+                [1, '#10b981']
+            ],
+            zmin=-1, zmax=1,
+            showscale=True,
+            colorbar=dict(
+                title='r', titlefont=dict(size=11, color='#9ca3af'),
+                tickfont=dict(size=10, color='#9ca3af'),
+                len=0.8
+            )
+        ))
+        fig_heat.update_layout(
+            template='plotly_dark', height=450,
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            margin=dict(l=10, r=10, t=30, b=10),
+            annotations=annotations,
+            xaxis=dict(side='bottom', tickangle=0),
+            yaxis=dict(autorange='reversed')
+        )
+        st.plotly_chart(fig_heat, use_container_width=True)
+
+        # Quick insight
+        # Find strongest and weakest correlations (excluding diagonal)
+        import numpy as np
+        mask = np.ones_like(z_vals, dtype=bool)
+        np.fill_diagonal(mask, False)
+        masked = z_vals.copy()
+        masked[~mask] = np.nan
+        max_idx = np.unravel_index(np.nanargmax(masked), masked.shape)
+        min_idx = np.unravel_index(np.nanargmin(masked), masked.shape)
+        st.markdown(
+            f"**Strongest link:** {corr_labels[max_idx[0]]} ↔ {corr_labels[max_idx[1]]} "
+            f"(r = {z_vals[max_idx[0]][max_idx[1]]:.2f})  |  "
+            f"**Weakest link:** {corr_labels[min_idx[0]]} ↔ {corr_labels[min_idx[1]]} "
+            f"(r = {z_vals[min_idx[0]][min_idx[1]]:.2f})"
+        )
+    else:
+        st.info("Not enough pillar data for correlation analysis")
+
 def display_holdings_tab():
     """Holdings with sparklines and color-coded changes"""
     st.markdown("<h2>PORTFOLIO HOLDINGS</h2>", unsafe_allow_html=True)
