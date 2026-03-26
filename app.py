@@ -334,6 +334,16 @@ def load_regime():
 def get_live_regime():
     """Calculate live regime indicators from Yahoo Finance + FRED"""
     try:
+        # Helper: safely convert to float, replacing NaN with default
+        def safe_float(val, default=0.0):
+            try:
+                v = float(val)
+                if pd.isna(v) or np.isnan(v):
+                    return default
+                return v
+            except (ValueError, TypeError):
+                return default
+
         # ── SENTIMENT & SYSTEMIC ──────────────────────────────
         # Download VIX, VIX3M, S&P 500, HY Bond ETF
         sentiment_tickers = ['^VIX', '^VIX3M', '^GSPC', 'HYG', 'LQD']
@@ -343,16 +353,16 @@ def get_live_regime():
             return None
 
         latest = sent_data.iloc[-1]
-        vix = float(latest.get('^VIX', 20))
-        vix3m = float(latest.get('^VIX3M', 20))
-        spx = float(latest.get('^GSPC', 5000))
+        vix = safe_float(latest.get('^VIX', 20), 20)
+        vix3m = safe_float(latest.get('^VIX3M', 20), 20)
+        spx = safe_float(latest.get('^GSPC', 5000), 5000)
 
         # VIX Term Structure
         vix_term = vix / vix3m if vix3m > 0 else 1.0
 
         # HY Spread proxy: LQD/HYG ratio (higher = wider spreads)
-        hyg = float(latest.get('HYG', 75))
-        lqd = float(latest.get('LQD', 105))
+        hyg = safe_float(latest.get('HYG', 75), 75)
+        lqd = safe_float(latest.get('LQD', 105), 105)
         hy_spread_proxy = (lqd / hyg - 1) * 10000  # bps approximation
 
         # Market breadth: % of S&P 500 components above 200-day MA
@@ -541,7 +551,7 @@ def get_live_regime():
             liq_latest = liq_data.iloc[-1]
 
             # DXY Dollar Index
-            dxy = float(liq_latest.get('DX-Y.NYB', 100))
+            dxy = safe_float(liq_latest.get('DX-Y.NYB', 100), 100)
             if dxy < 95:
                 dxy_score = 85
                 dxy_status = 'Risk-On'
@@ -559,7 +569,7 @@ def get_live_regime():
             liq_scores.append(dxy_score * 0.20)
 
             # 10Y Yield
-            y10 = float(liq_latest.get('^TNX', 4.0))
+            y10 = safe_float(liq_latest.get('^TNX', 4.0), 4.0)
             if y10 < 3.5:
                 y10_score = 80
                 y10_status = 'Supportive'
@@ -577,7 +587,7 @@ def get_live_regime():
             liq_scores.append(y10_score * 0.20)
 
             # Yield Curve (10Y - 3M)
-            y3m = float(liq_latest.get('^IRX', 4.0))
+            y3m = safe_float(liq_latest.get('^IRX', 4.0), 4.0)
             curve = y10 - y3m
             if curve > 1.0:
                 curve_score = 85
@@ -596,7 +606,7 @@ def get_live_regime():
             liq_scores.append(curve_score * 0.25)
 
             # Gold/SPX Ratio (fear gauge)
-            gold = float(liq_latest.get('GLD', 200))
+            gold = safe_float(liq_latest.get('GLD', 200), 200)
             gold_spx = gold / spx if spx > 0 else 0
             if gold_spx < 0.035:
                 gld_score = 80
@@ -616,8 +626,8 @@ def get_live_regime():
 
             # TLT momentum (bond flight)
             if len(liq_data) >= 21:
-                tlt_now = float(liq_latest.get('TLT', 90))
-                tlt_1m = float(liq_data['TLT'].iloc[-21]) if 'TLT' in liq_data.columns else tlt_now
+                tlt_now = safe_float(liq_latest.get('TLT', 90), 90)
+                tlt_1m = safe_float(liq_data['TLT'].iloc[-21], tlt_now) if 'TLT' in liq_data.columns else tlt_now
                 tlt_chg = ((tlt_now / tlt_1m) - 1) * 100 if tlt_1m > 0 else 0
                 if tlt_chg < -2:
                     tlt_score = 75  # Selling bonds = risk-on
@@ -1769,6 +1779,10 @@ def display_regime_tab():
 
     # ── COMBINED SCORE HEADER ──────────────────────────────────
     combined = data.get('combined_score', 0)
+    try:
+        combined = float(combined) if combined and not pd.isna(combined) else 0
+    except (ValueError, TypeError):
+        combined = 0
     if combined >= 70:
         c_color = "#10b981"
     elif combined >= 55:
@@ -1810,6 +1824,10 @@ def display_regime_tab():
 
     for col, (name, score_val, regime_text, icon) in zip([col1, col2, col3], scores):
         with col:
+            try:
+                score_val = float(score_val) if score_val and not pd.isna(score_val) else 50
+            except (ValueError, TypeError):
+                score_val = 50
             if score_val >= 70:
                 s_color = "#10b981"
             elif score_val >= 55:
@@ -1875,10 +1893,20 @@ def display_regime_tab():
                 status_color = "#f59e0b"
 
             val = ind.get('value', '')
-            if isinstance(val, float):
-                val_str = f"{val:.2f}" if val < 10 else f"{val:.1f}" if val < 1000 else f"{val:,.0f}"
+            if isinstance(val, (int, float)):
+                try:
+                    if pd.isna(val):
+                        val_str = '—'
+                    elif abs(val) < 10:
+                        val_str = f"{val:.2f}"
+                    elif abs(val) < 1000:
+                        val_str = f"{val:.1f}"
+                    else:
+                        val_str = f"{val:,.0f}"
+                except (ValueError, TypeError):
+                    val_str = '—'
             else:
-                val_str = safe_str(val)
+                val_str = safe_str(val) if val else '—'
 
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
@@ -1899,23 +1927,35 @@ def display_regime_tab():
         st.markdown("<h3>TECHNICAL INDICATORS — S&P 500</h3>", unsafe_allow_html=True)
         for ind in data.get('tech_indicators', []):
             score_val = ind.get('score', 0)
-            if isinstance(score_val, (int, float)) and not pd.isna(score_val):
-                if score_val >= 60:
-                    s_col = "#10b981"
-                elif score_val >= 30:
-                    s_col = "#f59e0b"
+            try:
+                if isinstance(score_val, (int, float)) and not pd.isna(score_val):
+                    if score_val >= 60:
+                        s_col = "#10b981"
+                    elif score_val >= 30:
+                        s_col = "#f59e0b"
+                    else:
+                        s_col = "#ef4444"
+                    score_str = f"{score_val:.0f}"
                 else:
-                    s_col = "#ef4444"
-                score_str = f"{score_val:.0f}"
-            else:
+                    s_col = "#6b7280"
+                    score_str = "—"
+            except (ValueError, TypeError):
                 s_col = "#6b7280"
                 score_str = "—"
 
             val = ind.get('value', '')
-            if isinstance(val, float):
-                val_str = f"{val:.2f}" if abs(val) < 100 else f"{val:,.0f}"
+            if isinstance(val, (int, float)):
+                try:
+                    if pd.isna(val):
+                        val_str = '—'
+                    elif abs(val) < 100:
+                        val_str = f"{val:.2f}"
+                    else:
+                        val_str = f"{val:,.0f}"
+                except (ValueError, TypeError):
+                    val_str = '—'
             else:
-                val_str = safe_str(val)
+                val_str = safe_str(val) if val else '—'
 
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
