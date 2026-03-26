@@ -1,6 +1,6 @@
 """
 ═══════════════════════════════════════════════════════════════
-MARANGO TERMINAL — v3.0
+MARANGO TERMINAL — v4.1
 Bloomberg/FactSet-Style Dashboard
 ═══════════════════════════════════════════════════════════════
 Modernized UI with glassmorphism, dark theme, monospace fonts.
@@ -8,12 +8,14 @@ All original functionality preserved with Bloomberg-style aesthetics.
 
 Features:
 ✅ Terminal-style header with live status
-✅ Custom KPI cards with colored indicators
+✅ Custom KPI cards with colored indicators (collapsible)
 ✅ Bloomberg dark theme (black #0a0a0f + orange accents)
 ✅ Monospace font for all data/numbers
 ✅ Glassmorphism cards with backdrop blur
-✅ 7 comprehensive tabs with improved charts
+✅ 8 comprehensive tabs with improved charts (+ ANALYTICS + AI)
 ✅ Real-time market data + Claude AI analysis
+✅ Live regime score (Yahoo Finance) with Excel fallback
+✅ Holdings filters (sector, signal, search)
 ═══════════════════════════════════════════════════════════════
 """
 
@@ -40,7 +42,7 @@ except ImportError:
 # ============================================
 
 st.set_page_config(
-    page_title="Marango Terminal v3.0",
+    page_title="Marango Terminal v4.1",
     page_icon="⌨️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -1256,7 +1258,12 @@ CATALYSTS: [top 2 positive catalysts, comma separated]"""
 def render_kpi_strip():
     """Render terminal-style KPI strip"""
     df = load_bloque1()
-    regime = load_regime()
+    # Use live regime (Yahoo Finance) with Excel fallback
+    live_regime = get_live_regime()
+    if live_regime and live_regime.get('combined', 0) > 0:
+        regime = live_regime
+    else:
+        regime = load_regime()
     live_prices = {}
 
     if 'Ticker' in df.columns:
@@ -2696,31 +2703,61 @@ def display_holdings_tab():
             df['Daily_Change'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('change_pct', 0) if isinstance(t, str) else 0)
             df['5D_Trend'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('sparkline', []) if isinstance(t, str) else [])
 
+    # Filters
+    filter_col1, filter_col2, filter_col3 = st.columns([2, 2, 1])
+    with filter_col1:
+        sectors = ['All'] + sorted(df['GICS Sector'].dropna().unique().tolist()) if 'GICS Sector' in df.columns else ['All']
+        selected_sector = st.selectbox("Sector", sectors, key="holdings_sector")
+    with filter_col2:
+        if 'SIGNAL' in df.columns:
+            signals = ['All'] + sorted(df['SIGNAL'].dropna().unique().tolist())
+            selected_signal = st.selectbox("Signal", signals, key="holdings_signal")
+        else:
+            selected_signal = 'All'
+    with filter_col3:
+        search_ticker = st.text_input("Search", placeholder="Ticker...", key="holdings_search")
+
+    # Apply filters
+    filtered_df = df.copy()
+    if selected_sector != 'All' and 'GICS Sector' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['GICS Sector'] == selected_sector]
+    if selected_signal != 'All' and 'SIGNAL' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['SIGNAL'] == selected_signal]
+    if search_ticker and 'Ticker' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['Ticker'].str.contains(search_ticker.upper(), case=False, na=False) |
+                                  filtered_df['Company'].str.contains(search_ticker, case=False, na=False)]
+
+    # Column setup — prioritize key columns, set widths
     holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL', 'P1', 'P2', 'P3', 'P4', 'P5']
     col_config = {
+        "Company": st.column_config.TextColumn("Company", width="medium"),
+        "GICS Sector": st.column_config.TextColumn("Sector", width="small"),
         "Quality_Score": st.column_config.ProgressColumn(
             "Quality",
             min_value=0,
             max_value=100,
-            format="%d"
+            format="%d",
+            width="small"
         ),
-        "P1": st.column_config.NumberColumn("P1", format="%d"),
-        "P2": st.column_config.NumberColumn("P2", format="%d"),
-        "P3": st.column_config.NumberColumn("P3", format="%d"),
-        "P4": st.column_config.NumberColumn("P4", format="%d"),
-        "P5": st.column_config.NumberColumn("P5", format="%d"),
-        "SIGNAL": st.column_config.TextColumn("Signal"),
+        "SIGNAL": st.column_config.TextColumn("Signal", width="small"),
+        "P1": st.column_config.NumberColumn("P1", format="%d", width="small"),
+        "P2": st.column_config.NumberColumn("P2", format="%d", width="small"),
+        "P3": st.column_config.NumberColumn("P3", format="%d", width="small"),
+        "P4": st.column_config.NumberColumn("P4", format="%d", width="small"),
+        "P5": st.column_config.NumberColumn("P5", format="%d", width="small"),
     }
 
-    if 'Ticker' in df.columns:
-        holdings_cols.insert(2, 'Ticker')
-    if 'Live_Price' in df.columns and df['Live_Price'].notna().any():
-        holdings_cols.insert(3, 'Live_Price')
-        holdings_cols.insert(4, 'Daily_Change')
-        col_config["Live_Price"] = st.column_config.NumberColumn("Price ($)", format="%.2f")
-        col_config["Daily_Change"] = st.column_config.NumberColumn("Day %", format="%+.2f%%")
-    if '5D_Trend' in df.columns:
-        holdings_cols.insert(5 if 'Live_Price' in df.columns else 3, '5D_Trend')
+    if 'Ticker' in filtered_df.columns:
+        holdings_cols.insert(1, 'Ticker')
+        col_config["Ticker"] = st.column_config.TextColumn("Ticker", width="small")
+    if 'Live_Price' in filtered_df.columns and filtered_df['Live_Price'].notna().any():
+        holdings_cols.insert(2, 'Live_Price')
+        holdings_cols.insert(3, 'Daily_Change')
+        col_config["Live_Price"] = st.column_config.NumberColumn("Price ($)", format="%.2f", width="small")
+        col_config["Daily_Change"] = st.column_config.NumberColumn("Day %", format="%+.2f%%", width="small")
+    if '5D_Trend' in filtered_df.columns:
+        idx = 4 if 'Live_Price' in filtered_df.columns else 2
+        holdings_cols.insert(idx, '5D_Trend')
         col_config["5D_Trend"] = st.column_config.LineChartColumn(
             "5D Trend",
             width="small",
@@ -2728,18 +2765,21 @@ def display_holdings_tab():
             y_max=None
         )
 
-    holdings_cols = [c for c in holdings_cols if c in df.columns]
+    holdings_cols = [c for c in holdings_cols if c in filtered_df.columns]
 
     # Timestamp and status
     update_time = datetime.now().strftime('%H:%M:%S')
     if live_prices:
-        st.caption(f"Live prices updated: {len(live_prices)}/{len(df)} tickers | Last refresh: {update_time}")
+        st.caption(f"Live prices: {len(live_prices)}/{len(df)} tickers | Showing {len(filtered_df)}/{len(df)} | Refresh: {update_time}")
+    else:
+        st.caption(f"Showing {len(filtered_df)}/{len(df)} holdings")
 
     st.dataframe(
-        df[holdings_cols],
+        filtered_df[holdings_cols].sort_values('Quality_Score', ascending=False),
         column_config=col_config,
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        height=500
     )
 
     # Color-coded top movers section
@@ -3012,7 +3052,7 @@ with st.sidebar:
         </div>
         <div style="font-size: 0.75rem; color: #9ca3af;
                     text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5rem;">
-            Terminal v3.0
+            Terminal v4.1
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3027,14 +3067,14 @@ with st.sidebar:
             st.rerun()
 
     with col2:
-        st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
+        st.caption(f"Loaded: {datetime.now().strftime('%H:%M')}")
 
     st.divider()
 
     st.markdown(f"""
     <div style="font-size: 0.8rem; color: #9ca3af; line-height: 1.6;">
         <strong>Quality x Regime</strong><br>
-        Investment System v4.0<br><br>
+        Investment System v4.1<br><br>
         <strong style="color:#f97316;">Data Sources:</strong><br>
         Yahoo Finance (live)<br>
         Excel (scoring)<br>
@@ -3050,7 +3090,12 @@ with st.sidebar:
 
 # Load data
 df = load_bloque1()
-regime = load_regime()
+# Use live regime (Yahoo Finance) with Excel fallback
+_live_regime = get_live_regime()
+if _live_regime and _live_regime.get('combined', 0) > 0:
+    regime = _live_regime
+else:
+    regime = load_regime()
 
 if df.empty:
     st.error("Could not load portfolio data. Check Excel files.")
@@ -3072,7 +3117,7 @@ else:
     regime_dot = '#ef4444'
     regime_label = 'RISK-OFF'
 
-header_time = datetime.now().strftime('%H:%M:%S')
+header_time = datetime.now().strftime('%H:%M')
 header_date = datetime.now().strftime('%d %b %Y').upper()
 
 st.markdown(f"""
@@ -3082,7 +3127,7 @@ st.markdown(f"""
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.3rem;">
         <div style="display:flex; align-items:center; gap:1rem;">
             <span style="font-size:1.1rem; font-weight:700; color:#f97316; letter-spacing:0.12em;">MARANGO</span>
-            <span style="color:#6b7280; font-size:0.7rem; border-left:1px solid #333; padding-left:0.8rem;">TERMINAL v4.0</span>
+            <span style="color:#6b7280; font-size:0.7rem; border-left:1px solid #333; padding-left:0.8rem;">TERMINAL v4.1</span>
             <span style="color:#6b7280; font-size:0.7rem; border-left:1px solid #333; padding-left:0.8rem;">Quality × Regime × Momentum</span>
         </div>
         <div style="display:flex; align-items:center; gap:1.2rem; font-size:0.75rem;">
@@ -3148,15 +3193,14 @@ def render_ticker_marquee():
             }}
         </style>
         """, unsafe_allow_html=True)
-    except Exception:
-        pass
+    except Exception as e:
+        st.caption(f"Market data loading... ({type(e).__name__})")
 
 render_ticker_marquee()
 
-st.markdown("")
-
-# KPI Strip
-render_kpi_strip()
+# KPI Strip — collapsible to save vertical space
+with st.expander("KPI DASHBOARD", expanded=True):
+    render_kpi_strip()
 
 st.divider()
 
@@ -3164,13 +3208,15 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "MARKETS",
     "SCORES",
     "REGIME",
     "BRIDGE",
     "MOMENTUM",
-    "HOLDINGS"
+    "ANALYTICS",
+    "HOLDINGS",
+    "AI"
 ])
 
 with tab1:
@@ -3210,9 +3256,23 @@ with tab5:
 
 with tab6:
     try:
+        display_analytics_tab()
+    except Exception as e:
+        st.error(f"Analytics tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab7:
+    try:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab8:
+    try:
+        display_ai_tab()
+    except Exception as e:
+        st.error(f"AI tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
@@ -3220,6 +3280,6 @@ st.divider()
 st.markdown("""
 <div style="text-align: center; color: #9ca3af; font-size: 0.75rem;
             text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 0;">
-    Marango Terminal v4.0 | Quality × Regime × Momentum | Marango Fund
+    Marango Terminal v4.1 | Quality × Regime × Momentum | Marango Fund
 </div>
 """, unsafe_allow_html=True)
