@@ -279,7 +279,7 @@ def load_bloque1():
         st.error(f"Error loading Bloque 1: {str(e)}")
         return pd.DataFrame()
 
-@st.cache_data
+@st.cache_data(ttl=900)
 def load_regime():
     """Load Market Regime — tries live Yahoo Finance first, falls back to Excel Bridge"""
     # Try live data first
