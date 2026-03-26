@@ -12,7 +12,7 @@ Features:
 ✅ Bloomberg dark theme (black #0a0a0f + orange accents)
 ✅ Monospace font for all data/numbers
 ✅ Glassmorphism cards with backdrop blur
-✅ 8 comprehensive tabs with improved charts (+ ANALYTICS + AI)
+✅ 6 comprehensive tabs with improved charts
 ✅ Real-time market data + Claude AI analysis
 ✅ Live regime score (Yahoo Finance) with Excel fallback
 ✅ Holdings filters (sector, signal, search)
@@ -3208,15 +3208,13 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "MARKETS",
     "SCORES",
     "REGIME",
     "BRIDGE",
     "MOMENTUM",
-    "ANALYTICS",
-    "HOLDINGS",
-    "AI"
+    "HOLDINGS"
 ])
 
 with tab1:
@@ -3256,23 +3254,9 @@ with tab5:
 
 with tab6:
     try:
-        display_analytics_tab()
-    except Exception as e:
-        st.error(f"Analytics tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab7:
-    try:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab8:
-    try:
-        display_ai_tab()
-    except Exception as e:
-        st.error(f"AI tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
