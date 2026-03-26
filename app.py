@@ -1258,12 +1258,8 @@ CATALYSTS: [top 2 positive catalysts, comma separated]"""
 def render_kpi_strip():
     """Render terminal-style KPI strip"""
     df = load_bloque1()
-    # Use live regime (Yahoo Finance) with Excel fallback
-    live_regime = get_live_regime()
-    if live_regime and live_regime.get('combined', 0) > 0:
-        regime = live_regime
-    else:
-        regime = load_regime()
+    # Use live regime (Yahoo Finance) with Excel fallback — load_regime() tries live first internally
+    regime = load_regime()
     live_prices = {}
 
     if 'Ticker' in df.columns:
@@ -3090,12 +3086,8 @@ with st.sidebar:
 
 # Load data
 df = load_bloque1()
-# Use live regime (Yahoo Finance) with Excel fallback
-_live_regime = get_live_regime()
-if _live_regime and _live_regime.get('combined', 0) > 0:
-    regime = _live_regime
-else:
-    regime = load_regime()
+# Use live regime (Yahoo Finance) with Excel fallback — load_regime() tries live first internally
+regime = load_regime()
 
 if df.empty:
     st.error("Could not load portfolio data. Check Excel files.")
