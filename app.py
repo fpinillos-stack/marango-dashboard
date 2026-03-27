@@ -42,7 +42,7 @@ except ImportError:
 # ============================================
 
 st.set_page_config(
-    page_title="Marango Terminal v4.1",
+    page_title="Marango Terminal v4.2",
     page_icon="⌨️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -1117,6 +1117,119 @@ def get_live_prices(tickers):
         return {}
 
 # ============================================
+# DEXTER-INSPIRED DATA FUNCTIONS
+# ============================================
+
+@st.cache_data(ttl=900)
+def get_insider_trades(ticker):
+    """Get recent insider transactions for a ticker via yfinance"""
+    try:
+        t = yf.Ticker(ticker)
+        insiders = t.insider_transactions
+        if insiders is None or insiders.empty:
+            return {'net': 0, 'buys': 0, 'sells': 0, 'label': '—'}
+        # Last 90 days
+        if 'Start Date' in insiders.columns:
+            insiders['Start Date'] = pd.to_datetime(insiders['Start Date'], errors='coerce')
+            cutoff = pd.Timestamp.now() - pd.Timedelta(days=90)
+            insiders = insiders[insiders['Start Date'] >= cutoff]
+        buys = 0
+        sells = 0
+        if 'Transaction' in insiders.columns:
+            for _, row in insiders.iterrows():
+                txn = str(row.get('Transaction', '')).lower()
+                if 'purchase' in txn or 'buy' in txn:
+                    buys += 1
+                elif 'sale' in txn or 'sell' in txn:
+                    sells += 1
+        net = buys - sells
+        if net > 0:
+            label = f'🟢 Net Buy ({buys}B/{sells}S)'
+        elif net < 0:
+            label = f'🔴 Net Sell ({buys}B/{sells}S)'
+        elif buys + sells > 0:
+            label = f'⚪ Neutral ({buys}B/{sells}S)'
+        else:
+            label = '—'
+        return {'net': net, 'buys': buys, 'sells': sells, 'label': label}
+    except Exception:
+        return {'net': 0, 'buys': 0, 'sells': 0, 'label': '—'}
+
+
+@st.cache_data(ttl=900)
+def get_analyst_data(ticker):
+    """Get analyst price targets and consensus for a ticker"""
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info or {}
+        target_mean = info.get('targetMeanPrice', None)
+        target_low = info.get('targetLowPrice', None)
+        target_high = info.get('targetHighPrice', None)
+        current = info.get('currentPrice', None) or info.get('regularMarketPrice', None)
+        rec = info.get('recommendationKey', '').upper() or '—'
+        num_analysts = info.get('numberOfAnalystOpinions', 0)
+        pe_forward = info.get('forwardPE', None)
+        pe_trailing = info.get('trailingPE', None)
+
+        upside = None
+        if target_mean and current and current > 0:
+            upside = ((target_mean - current) / current) * 100
+
+        return {
+            'target_mean': target_mean,
+            'target_low': target_low,
+            'target_high': target_high,
+            'current': current,
+            'upside': upside,
+            'recommendation': rec,
+            'num_analysts': num_analysts,
+            'pe_forward': pe_forward,
+            'pe_trailing': pe_trailing,
+        }
+    except Exception:
+        return {'target_mean': None, 'upside': None, 'recommendation': '—', 'num_analysts': 0,
+                'pe_forward': None, 'pe_trailing': None, 'target_low': None, 'target_high': None, 'current': None}
+
+
+@st.cache_data(ttl=900)
+def get_earnings_info(ticker):
+    """Get earnings dates and basic financials for a ticker"""
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info or {}
+        result = {
+            'revenue': info.get('totalRevenue', None),
+            'net_income': info.get('netIncomeToCommon', None),
+            'eps_trailing': info.get('trailingEps', None),
+            'eps_forward': info.get('forwardEps', None),
+            'market_cap': info.get('marketCap', None),
+            'dividend_yield': info.get('dividendYield', None),
+            'gross_margins': info.get('grossMargins', None),
+            'ebitda': info.get('ebitda', None),
+            'next_earnings': None,
+            'last_earnings': None,
+        }
+        # Try to get earnings dates
+        try:
+            ed = t.earnings_dates
+            if ed is not None and not ed.empty:
+                now = pd.Timestamp.now(tz='UTC') if ed.index.tz else pd.Timestamp.now()
+                future = ed[ed.index >= now]
+                past = ed[ed.index < now]
+                if not future.empty:
+                    result['next_earnings'] = future.index.min().strftime('%Y-%m-%d')
+                if not past.empty:
+                    result['last_earnings'] = past.index.max().strftime('%Y-%m-%d')
+        except Exception:
+            pass
+        return result
+    except Exception:
+        return {'revenue': None, 'net_income': None, 'eps_trailing': None, 'eps_forward': None,
+                'market_cap': None, 'dividend_yield': None, 'gross_margins': None, 'ebitda': None,
+                'next_earnings': None, 'last_earnings': None}
+
+
+# ============================================
 # AI HELPER FUNCTIONS
 # ============================================
 
@@ -1533,6 +1646,138 @@ def display_scores_tab():
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── EARNINGS & ANALYST SUMMARY (Dexter-inspired) ────────────
+    if ticker:
+        earn_col1, earn_col2 = st.columns(2)
+        with earn_col1:
+            earnings = get_earnings_info(ticker)
+            analyst = get_analyst_data(ticker)
+
+            def fmt_big(val):
+                if val is None:
+                    return '—'
+                if abs(val) >= 1e12:
+                    return f"${val/1e12:.1f}T"
+                if abs(val) >= 1e9:
+                    return f"${val/1e9:.1f}B"
+                if abs(val) >= 1e6:
+                    return f"${val/1e6:.0f}M"
+                return f"${val:,.0f}"
+
+            rev_str = fmt_big(earnings.get('revenue'))
+            ni_str = fmt_big(earnings.get('net_income'))
+            ebitda_str = fmt_big(earnings.get('ebitda'))
+            mcap_str = fmt_big(earnings.get('market_cap'))
+            gm = earnings.get('gross_margins')
+            gm_str = f"{gm*100:.1f}%" if gm else '—'
+            eps_t = earnings.get('eps_trailing')
+            eps_f = earnings.get('eps_forward')
+            eps_t_str = f"${eps_t:.2f}" if eps_t else '—'
+            eps_f_str = f"${eps_f:.2f}" if eps_f else '—'
+            next_e = earnings.get('next_earnings', '—') or '—'
+            last_e = earnings.get('last_earnings', '—') or '—'
+
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+                        border-radius:8px; padding:1rem; margin-bottom:0.5rem;">
+                <div style="font-weight:700; color:#06b6d4; font-size:0.95rem; margin-bottom:0.6rem;">
+                    EARNINGS & FUNDAMENTALS
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem 1.5rem; font-size:0.82rem;">
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Revenue</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{rev_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Market Cap</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{mcap_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Net Income</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{ni_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">EBITDA</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{ebitda_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Gross Margin</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{gm_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">EPS (TTM)</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{eps_t_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">EPS (Fwd)</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{eps_f_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Next Earnings</span><span style="color:#f97316;font-family:JetBrains Mono;">{next_e}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Last Earnings</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{last_e}</span></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with earn_col2:
+            target_m = analyst.get('target_mean')
+            target_l = analyst.get('target_low')
+            target_h = analyst.get('target_high')
+            cur_price = analyst.get('current')
+            upside = analyst.get('upside')
+            rec = analyst.get('recommendation', '—')
+            n_analysts = analyst.get('num_analysts', 0)
+            fwd_pe = analyst.get('pe_forward')
+            trail_pe = analyst.get('pe_trailing')
+
+            target_str = f"${target_m:.0f}" if target_m else '—'
+            range_str = f"${target_l:.0f} — ${target_h:.0f}" if target_l and target_h else '—'
+            cur_str = f"${cur_price:.2f}" if cur_price else '—'
+            fwd_pe_str = f"{fwd_pe:.1f}x" if fwd_pe else '—'
+            trail_pe_str = f"{trail_pe:.1f}x" if trail_pe else '—'
+
+            if upside is not None:
+                if upside > 10:
+                    up_color = "#10b981"
+                elif upside > 0:
+                    up_color = "#06b6d4"
+                else:
+                    up_color = "#ef4444"
+                up_str = f"{upside:+.1f}%"
+            else:
+                up_color = "#6b7280"
+                up_str = '—'
+
+            rec_colors = {'BUY': '#10b981', 'STRONG_BUY': '#10b981', 'OUTPERFORM': '#10b981', 'OVERWEIGHT': '#10b981',
+                          'HOLD': '#f59e0b', 'NEUTRAL': '#f59e0b', 'EQUAL-WEIGHT': '#f59e0b',
+                          'SELL': '#ef4444', 'UNDERPERFORM': '#ef4444', 'UNDERWEIGHT': '#ef4444'}
+            rec_color = rec_colors.get(rec, '#9ca3af')
+
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+                        border-radius:8px; padding:1rem; margin-bottom:0.5rem;">
+                <div style="font-weight:700; color:#06b6d4; font-size:0.95rem; margin-bottom:0.6rem;">
+                    ANALYST CONSENSUS ({n_analysts} analysts)
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                    <div>
+                        <span style="font-family:JetBrains Mono; font-size:1.5rem; font-weight:700; color:{rec_color};">{rec}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="color:#9ca3af;font-size:0.8rem;">Target</span>
+                        <span style="font-family:JetBrains Mono; font-size:1.3rem; font-weight:700; color:#e5e7eb;"> {target_str}</span>
+                        <span style="font-family:JetBrains Mono; font-size:1.1rem; font-weight:700; color:{up_color};"> ({up_str})</span>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem 1.5rem; font-size:0.82rem;">
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Current Price</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{cur_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Target Range</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{range_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Fwd P/E</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{fwd_pe_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Trail P/E</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{trail_pe_str}</span></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Insider trades summary
+            insider = get_insider_trades(ticker)
+            ins_label = insider.get('label', '—')
+            ins_buys = insider.get('buys', 0)
+            ins_sells = insider.get('sells', 0)
+            if insider.get('net', 0) > 0:
+                ins_color = '#10b981'
+            elif insider.get('net', 0) < 0:
+                ins_color = '#ef4444'
+            else:
+                ins_color = '#6b7280'
+
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+                        border-radius:8px; padding:0.7rem 1rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:700; color:#06b6d4; font-size:0.85rem;">INSIDER TRADES (90d)</span>
+                    <span style="font-family:JetBrains Mono; color:{ins_color}; font-weight:700;">{ins_label}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # Layout: Radar chart left, pillar bars right
     col_radar, col_bars = st.columns([3, 2])
@@ -2684,7 +2929,7 @@ def display_analytics_tab():
 
 
 def display_holdings_tab():
-    """Holdings with sparklines and color-coded changes"""
+    """Holdings with sparklines, insider trades, analyst consensus, and fundamental filters"""
     st.markdown("<h2>PORTFOLIO HOLDINGS</h2>", unsafe_allow_html=True)
 
     df = load_bloque1()
@@ -2699,19 +2944,58 @@ def display_holdings_tab():
             df['Daily_Change'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('change_pct', 0) if isinstance(t, str) else 0)
             df['5D_Trend'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('sparkline', []) if isinstance(t, str) else [])
 
-    # Filters
-    filter_col1, filter_col2, filter_col3 = st.columns([2, 2, 1])
-    with filter_col1:
+        # --- Insider Trades column ---
+        df['Insider'] = df['Ticker'].map(
+            lambda t: get_insider_trades(t).get('label', '—') if isinstance(t, str) and t.strip() else '—'
+        )
+        df['Insider_Net'] = df['Ticker'].map(
+            lambda t: get_insider_trades(t).get('net', 0) if isinstance(t, str) and t.strip() else 0
+        )
+
+        # --- Analyst Consensus columns ---
+        df['Target'] = df['Ticker'].map(
+            lambda t: get_analyst_data(t).get('target_mean', None) if isinstance(t, str) and t.strip() else None
+        )
+        df['Upside'] = df['Ticker'].map(
+            lambda t: get_analyst_data(t).get('upside', None) if isinstance(t, str) and t.strip() else None
+        )
+        df['Consensus'] = df['Ticker'].map(
+            lambda t: get_analyst_data(t).get('recommendation', '—') if isinstance(t, str) and t.strip() else '—'
+        )
+        df['Fwd_PE'] = df['Ticker'].map(
+            lambda t: get_analyst_data(t).get('pe_forward', None) if isinstance(t, str) and t.strip() else None
+        )
+
+    # ── FILTERS ──────────────────────────────────────────────────
+    st.markdown("<h4 style='margin-top:0;'>FILTERS</h4>", unsafe_allow_html=True)
+
+    filter_row1_c1, filter_row1_c2, filter_row1_c3 = st.columns([2, 2, 1])
+    with filter_row1_c1:
         sectors = ['All'] + sorted(df['GICS Sector'].dropna().unique().tolist()) if 'GICS Sector' in df.columns else ['All']
         selected_sector = st.selectbox("Sector", sectors, key="holdings_sector")
-    with filter_col2:
+    with filter_row1_c2:
         if 'SIGNAL' in df.columns:
             signals = ['All'] + sorted(df['SIGNAL'].dropna().unique().tolist())
             selected_signal = st.selectbox("Signal", signals, key="holdings_signal")
         else:
             selected_signal = 'All'
-    with filter_col3:
+    with filter_row1_c3:
         search_ticker = st.text_input("Search", placeholder="Ticker...", key="holdings_search")
+
+    # Fundamental filters (Dexter-inspired screener)
+    with st.expander("Fundamental Filters", expanded=False):
+        fund_c1, fund_c2, fund_c3, fund_c4 = st.columns(4)
+        with fund_c1:
+            min_quality = st.slider("Min Quality Score", 0, 100, 0, key="hf_min_quality")
+        with fund_c2:
+            insider_filter = st.selectbox("Insider Activity (90d)", ['All', 'Net Buying', 'Net Selling', 'Any Activity'],
+                                          key="hf_insider")
+        with fund_c3:
+            consensus_filter = st.selectbox("Analyst Consensus", ['All', 'BUY / STRONG_BUY', 'HOLD', 'SELL / UNDERPERFORM'],
+                                            key="hf_consensus")
+        with fund_c4:
+            upside_filter = st.selectbox("Target Upside", ['All', '> 20%', '> 10%', '> 0% (Upside)', '< 0% (Downside)'],
+                                         key="hf_upside")
 
     # Apply filters
     filtered_df = df.copy()
@@ -2723,7 +3007,34 @@ def display_holdings_tab():
         filtered_df = filtered_df[filtered_df['Ticker'].str.contains(search_ticker.upper(), case=False, na=False) |
                                   filtered_df['Company'].str.contains(search_ticker, case=False, na=False)]
 
-    # Column setup — prioritize key columns, set widths
+    # Fundamental filters
+    if min_quality > 0 and 'Quality_Score' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['Quality_Score'] >= min_quality]
+    if insider_filter != 'All' and 'Insider_Net' in filtered_df.columns:
+        if insider_filter == 'Net Buying':
+            filtered_df = filtered_df[filtered_df['Insider_Net'] > 0]
+        elif insider_filter == 'Net Selling':
+            filtered_df = filtered_df[filtered_df['Insider_Net'] < 0]
+        elif insider_filter == 'Any Activity':
+            filtered_df = filtered_df[filtered_df['Insider_Net'] != 0]
+    if consensus_filter != 'All' and 'Consensus' in filtered_df.columns:
+        if consensus_filter == 'BUY / STRONG_BUY':
+            filtered_df = filtered_df[filtered_df['Consensus'].isin(['BUY', 'STRONG_BUY', 'OUTPERFORM', 'OVERWEIGHT'])]
+        elif consensus_filter == 'HOLD':
+            filtered_df = filtered_df[filtered_df['Consensus'].isin(['HOLD', 'NEUTRAL', 'EQUAL-WEIGHT', 'MARKET_PERFORM'])]
+        elif consensus_filter == 'SELL / UNDERPERFORM':
+            filtered_df = filtered_df[filtered_df['Consensus'].isin(['SELL', 'UNDERPERFORM', 'UNDERWEIGHT', 'STRONG_SELL'])]
+    if upside_filter != 'All' and 'Upside' in filtered_df.columns:
+        if upside_filter == '> 20%':
+            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] > 20)]
+        elif upside_filter == '> 10%':
+            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] > 10)]
+        elif upside_filter == '> 0% (Upside)':
+            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] > 0)]
+        elif upside_filter == '< 0% (Downside)':
+            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] < 0)]
+
+    # ── COLUMN SETUP ─────────────────────────────────────────────
     holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL', 'P1', 'P2', 'P3', 'P4', 'P5']
     col_config = {
         "Company": st.column_config.TextColumn("Company", width="medium"),
@@ -2760,6 +3071,23 @@ def display_holdings_tab():
             y_min=None,
             y_max=None
         )
+
+    # Insert Analyst + Insider columns after pillar scores
+    if 'Target' in filtered_df.columns:
+        holdings_cols.append('Target')
+        col_config["Target"] = st.column_config.NumberColumn("Target ($)", format="%.0f", width="small")
+    if 'Upside' in filtered_df.columns:
+        holdings_cols.append('Upside')
+        col_config["Upside"] = st.column_config.NumberColumn("Upside %", format="%+.1f%%", width="small")
+    if 'Consensus' in filtered_df.columns:
+        holdings_cols.append('Consensus')
+        col_config["Consensus"] = st.column_config.TextColumn("Consensus", width="small")
+    if 'Insider' in filtered_df.columns:
+        holdings_cols.append('Insider')
+        col_config["Insider"] = st.column_config.TextColumn("Insider 90d", width="small")
+    if 'Fwd_PE' in filtered_df.columns:
+        holdings_cols.append('Fwd_PE')
+        col_config["Fwd_PE"] = st.column_config.NumberColumn("Fwd P/E", format="%.1f", width="small")
 
     holdings_cols = [c for c in holdings_cols if c in filtered_df.columns]
 
@@ -3256,6 +3584,6 @@ st.divider()
 st.markdown("""
 <div style="text-align: center; color: #9ca3af; font-size: 0.75rem;
             text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 0;">
-    Marango Terminal v4.1 | Quality × Regime × Momentum | Marango Fund
+    Marango Terminal v4.2 | Quality × Regime × Momentum | Marango Fund
 </div>
 """, unsafe_allow_html=True)
