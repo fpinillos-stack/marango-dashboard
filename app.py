@@ -1125,6 +1125,8 @@ def get_live_prices(tickers):
 @st.cache_data(ttl=900)
 def get_insider_trades(ticker):
     """Get recent insider transactions for a ticker via yfinance"""
+    if not ticker or not isinstance(ticker, str) or len(ticker.strip()) == 0:
+        return {'net': 0, 'buys': 0, 'sells': 0, 'label': '—'}
     try:
         t = yf.Ticker(ticker)
         insiders = t.insider_transactions
@@ -1161,6 +1163,9 @@ def get_insider_trades(ticker):
 @st.cache_data(ttl=900)
 def get_analyst_data(ticker):
     """Get analyst price targets and consensus for a ticker"""
+    if not ticker or not isinstance(ticker, str) or len(ticker.strip()) == 0:
+        return {'target_mean': None, 'upside': None, 'recommendation': '—', 'num_analysts': 0,
+                'pe_forward': None, 'pe_trailing': None, 'target_low': None, 'target_high': None, 'current': None}
     try:
         t = yf.Ticker(ticker)
         info = t.info or {}
@@ -1196,6 +1201,10 @@ def get_analyst_data(ticker):
 @st.cache_data(ttl=900)
 def get_earnings_info(ticker):
     """Get earnings dates and basic financials for a ticker"""
+    if not ticker or not isinstance(ticker, str) or len(ticker.strip()) == 0:
+        return {'revenue': None, 'net_income': None, 'eps_trailing': None, 'eps_forward': None,
+                'market_cap': None, 'dividend_yield': None, 'gross_margins': None, 'ebitda': None,
+                'next_earnings': None, 'last_earnings': None}
     try:
         t = yf.Ticker(ticker)
         info = t.info or {}
@@ -1615,10 +1624,18 @@ def display_scores_tab():
     row = sorted_df.iloc[selected_idx]
 
     company = safe_str(row.get('Company', ''), 'N/A')
-    ticker = safe_str(row.get('Ticker', ''))
     sector = safe_str(row.get('GICS Sector', ''), 'N/A')
     score = row.get('Quality_Score', 0)
     signal = safe_str(row.get('SIGNAL', ''), 'N/A')
+
+    # Find ticker — try multiple column name variants
+    ticker = ''
+    for col_name in ['Ticker', 'TICKER', 'ticker', 'Symbol', 'SYMBOL']:
+        if col_name in sorted_df.columns:
+            raw_val = row.get(col_name, '')
+            ticker = safe_str(raw_val)
+            if ticker:
+                break
 
     # Score color
     if score >= 80:
@@ -1650,7 +1667,13 @@ def display_scores_tab():
     """, unsafe_allow_html=True)
 
     # ── EARNINGS & ANALYST SUMMARY (Dexter-inspired) ────────────
-    if ticker:
+    # Debug: show available columns and ticker value (remove after confirming)
+    with st.expander("DEBUG — Column info (remove later)", expanded=False):
+        st.caption(f"Columns: {list(sorted_df.columns)}")
+        st.caption(f"Ticker value: '{ticker}' | Type: {type(row.get('Ticker', 'MISSING'))}")
+
+    # Show panels for all companies — uses yfinance when ticker available
+    if True:
       try:
         earn_col1, earn_col2 = st.columns(2)
         with earn_col1:
