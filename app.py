@@ -1501,85 +1501,134 @@ def render_kpi_strip():
     st.markdown(cards_html, unsafe_allow_html=True)
 
 def display_bridge_tab():
-    """Bridge: Quality x Regime"""
-    st.markdown("<h2>QUALITY × REGIME BRIDGE</h2>", unsafe_allow_html=True)
+    """Bridge: Quality × Regime × Momentum"""
+    st.markdown("<h2>QUALITY × REGIME × MOMENTUM BRIDGE</h2>", unsafe_allow_html=True)
+    st.caption("Three-factor signal: Fundamental Quality (B1) × Market Regime (B5) × Sector Momentum (B4)")
 
     regime = load_regime()
     zones_df, picks_df = load_bridge_data()
+    momentum = get_sector_momentum()
 
-    # Regime Status Card
-    col1, col2 = st.columns([1, 2])
+    # ── THREE-FACTOR DASHBOARD ───────────────────────────────────
+    col_regime, col_momentum, col_combined = st.columns(3)
 
-    with col1:
-        # Gauge chart for regime
-        fig = go.Figure(data=[go.Indicator(
-            mode="gauge+number",
-            value=regime['combined'],
-            title={'text': "REGIME SCORE"},
-            domain={'x': [0, 1], 'y': [0, 1]},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'color': '#f97316'},
-                'steps': [
-                    {'range': [0, 35], 'color': '#10b981'},
-                    {'range': [35, 60], 'color': '#06b6d4'},
-                    {'range': [60, 80], 'color': '#f59e0b'},
-                    {'range': [80, 100], 'color': '#ef4444'}
-                ],
-                'threshold': {
-                    'line': {'color': 'white', 'width': 4},
-                    'thickness': 0.75,
-                    'value': 90
-                }
-            }
-        )])
-        fig.update_layout(
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
-            height=400,
-            margin=dict(l=0, r=0, t=50, b=0)
-        )
-        st.plotly_chart(fig, width='stretch')
+    with col_regime:
+        r_score = regime['combined']
+        if r_score <= 35:
+            r_color, r_label = '#10b981', 'RISK-ON'
+        elif r_score <= 60:
+            r_color, r_label = '#06b6d4', 'NEUTRAL'
+        elif r_score <= 80:
+            r_color, r_label = '#f59e0b', 'CAUTIOUS'
+        else:
+            r_color, r_label = '#ef4444', 'RISK-OFF'
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.03); border:1px solid {r_color}40; border-radius:8px; padding:1rem; text-align:center;">
+            <div style="color:#9ca3af; font-size:0.75rem; text-transform:uppercase;">Market Regime</div>
+            <div style="font-family:JetBrains Mono; font-size:2rem; font-weight:700; color:{r_color};">{r_score:.0f}</div>
+            <div style="color:{r_color}; font-size:0.9rem; font-weight:600;">{r_label}</div>
+            <div style="color:#6b7280; font-size:0.7rem; margin-top:0.3rem;">Tech {regime['technical']:.0f} | Sent {regime['sentiment']:.0f} | Liq {regime['liquidity']:.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with col2:
-        st.markdown("**STATUS**")
-        st.subheader(regime['status'])
+    with col_momentum:
+        # Overall market momentum (average of all sectors)
+        if momentum:
+            avg_mom = sum(m['momentum_score'] for m in momentum) / len(momentum)
+            tailwinds = sum(1 for m in momentum if m['momentum_score'] > 2)
+            headwinds = sum(1 for m in momentum if m['momentum_score'] < -2)
+        else:
+            avg_mom, tailwinds, headwinds = 0, 0, 0
+        if avg_mom > 2:
+            m_color = '#10b981'
+        elif avg_mom > -2:
+            m_color = '#f59e0b'
+        else:
+            m_color = '#ef4444'
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.03); border:1px solid {m_color}40; border-radius:8px; padding:1rem; text-align:center;">
+            <div style="color:#9ca3af; font-size:0.75rem; text-transform:uppercase;">Sector Momentum</div>
+            <div style="font-family:JetBrains Mono; font-size:2rem; font-weight:700; color:{m_color};">{avg_mom:+.1f}</div>
+            <div style="color:{m_color}; font-size:0.9rem; font-weight:600;">{'POSITIVE' if avg_mom > 2 else 'NEGATIVE' if avg_mom < -2 else 'MIXED'}</div>
+            <div style="color:#6b7280; font-size:0.7rem; margin-top:0.3rem;">{tailwinds} tailwinds | {headwinds} headwinds</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.markdown("")
-
-        sub1, sub2, sub3 = st.columns(3)
-        with sub1:
-            st.metric("Technical", f"{regime['technical']:.0f}")
-        with sub2:
-            st.metric("Sentiment", f"{regime['sentiment']:.0f}")
-        with sub3:
-            st.metric("Liquidity", f"{regime['liquidity']:.0f}")
-
-        st.markdown("")
-
+    with col_combined:
         cb_active = '🚨' in str(regime.get('circuit_breaker', ''))
-        cb_label = "CIRCUIT BREAKER"
-        cb_value = "ACTIVE" if cb_active else "NORMAL"
-        st.metric(cb_label, cb_value)
+        if cb_active:
+            bridge_color, bridge_label = '#ef4444', 'DEFENSIVE'
+        elif r_score <= 35 and avg_mom > 0:
+            bridge_color, bridge_label = '#10b981', 'FULL OFFENSE'
+        elif r_score <= 60 and avg_mom > 0:
+            bridge_color, bridge_label = '#06b6d4', 'SELECTIVE BUY'
+        elif r_score <= 60:
+            bridge_color, bridge_label = '#f59e0b', 'HOLD / ROTATE'
+        elif r_score <= 80:
+            bridge_color, bridge_label = '#f59e0b', 'REDUCE RISK'
+        else:
+            bridge_color, bridge_label = '#ef4444', 'DEFENSIVE'
+        st.markdown(f"""
+        <div style="background:rgba(249,115,22,0.06); border:1px solid {bridge_color}40; border-radius:8px; padding:1rem; text-align:center;">
+            <div style="color:#f97316; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Bridge Signal</div>
+            <div style="font-family:JetBrains Mono; font-size:1.6rem; font-weight:700; color:{bridge_color}; margin:0.3rem 0;">{bridge_label}</div>
+            <div style="color:#6b7280; font-size:0.7rem;">Quality × Regime × Momentum</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.divider()
 
-    # Zones Table
+    # ── REGIME ACTION ZONES ──────────────────────────────────────
     if not zones_df.empty:
         st.markdown("<h3>REGIME ACTION ZONES</h3>", unsafe_allow_html=True)
         st.dataframe(zones_df, width='stretch', hide_index=True)
+        st.divider()
 
-    st.divider()
+    # ── PICKS WITH MOMENTUM OVERLAY ──────────────────────────────
+    st.markdown("<h3>FILTERED PICKS — WITH MOMENTUM</h3>", unsafe_allow_html=True)
+    st.caption("Regime Action from B1×B5 | Momentum Wind shows sector tailwind/headwind from B4")
 
-    # Actionable Picks
-    st.markdown("<h3>FILTERED PICKS</h3>", unsafe_allow_html=True)
+    if not picks_df.empty and momentum:
+        # Build sector momentum lookup
+        sector_mom = {m['sector']: m['momentum_score'] for m in momentum}
 
-    if not picks_df.empty:
-        buy_picks = picks_df[picks_df['Regime_Action'].str.contains('✅|BUY', case=False, na=False)]
-        hold_picks = picks_df[picks_df['Regime_Action'].str.contains('⚠️|HOLD', case=False, na=False)]
-        trim_picks = picks_df[picks_df['Regime_Action'].str.contains('🔴|TRIM', case=False, na=False)]
+        # Add momentum columns to picks
+        picks_df['Mom_Score'] = picks_df['Sector'].map(
+            lambda s: sector_mom.get(s, 0) if isinstance(s, str) else 0
+        )
+        picks_df['Wind'] = picks_df['Mom_Score'].map(
+            lambda m: '🟢 Tailwind' if m > 2 else '🔴 Headwind' if m < -2 else '🟡 Neutral'
+        )
+
+        # Conviction: combine regime action + momentum
+        def calc_conviction(row):
+            action = str(row.get('Regime_Action', ''))
+            mom = row.get('Mom_Score', 0)
+            if '✅' in action or 'BUY' in action.upper():
+                if mom > 2:
+                    return '🟢🟢 HIGH CONVICTION BUY'
+                elif mom < -2:
+                    return '🟡 BUY (headwind)'
+                return '🟢 BUY'
+            elif '🔴' in action or 'TRIM' in action.upper():
+                if mom < -2:
+                    return '🔴🔴 STRONG TRIM'
+                elif mom > 2:
+                    return '🟡 TRIM (tailwind)'
+                return '🔴 TRIM'
+            else:
+                if mom > 2:
+                    return '🟢 HOLD → watch for upgrade'
+                elif mom < -2:
+                    return '🟡 HOLD → watch for downgrade'
+                return '⚠️ HOLD'
+
+        picks_df['Conviction'] = picks_df.apply(calc_conviction, axis=1)
+
+        # Tabs by conviction
+        buy_picks = picks_df[picks_df['Conviction'].str.contains('BUY', case=False, na=False)]
+        hold_picks = picks_df[picks_df['Conviction'].str.contains('HOLD', case=False, na=False)]
+        trim_picks = picks_df[picks_df['Conviction'].str.contains('TRIM', case=False, na=False)]
 
         subtab1, subtab2, subtab3 = st.tabs([
             f"BUY ({len(buy_picks)})",
@@ -1587,23 +1636,45 @@ def display_bridge_tab():
             f"TRIM ({len(trim_picks)})"
         ])
 
+        display_cols = [c for c in ['Company', 'Sector', 'B1_Score', 'Upside %', 'Wind', 'Conviction', 'Rationale']
+                        if c in picks_df.columns]
+
         with subtab1:
             if len(buy_picks) > 0:
-                st.dataframe(buy_picks, width='stretch', hide_index=True)
+                st.dataframe(buy_picks[display_cols].sort_values('B1_Score', ascending=False),
+                             width='stretch', hide_index=True)
             else:
                 st.info("No BUY signals in current regime")
 
         with subtab2:
             if len(hold_picks) > 0:
-                st.dataframe(hold_picks, width='stretch', hide_index=True)
+                st.dataframe(hold_picks[display_cols].sort_values('B1_Score', ascending=False),
+                             width='stretch', hide_index=True)
             else:
                 st.info("No HOLD signals")
 
         with subtab3:
             if len(trim_picks) > 0:
-                st.dataframe(trim_picks, width='stretch', hide_index=True)
+                st.dataframe(trim_picks[display_cols].sort_values('B1_Score', ascending=False),
+                             width='stretch', hide_index=True)
             else:
                 st.info("No trim recommendations")
+
+    elif not picks_df.empty:
+        # Fallback: no momentum data, show original picks
+        buy_picks = picks_df[picks_df['Regime_Action'].str.contains('✅|BUY', case=False, na=False)]
+        hold_picks = picks_df[picks_df['Regime_Action'].str.contains('⚠️|HOLD', case=False, na=False)]
+        trim_picks = picks_df[picks_df['Regime_Action'].str.contains('🔴|TRIM', case=False, na=False)]
+
+        subtab1, subtab2, subtab3 = st.tabs([
+            f"BUY ({len(buy_picks)})", f"HOLD ({len(hold_picks)})", f"TRIM ({len(trim_picks)})"
+        ])
+        with subtab1:
+            st.dataframe(buy_picks, width='stretch', hide_index=True) if len(buy_picks) > 0 else st.info("No BUY signals")
+        with subtab2:
+            st.dataframe(hold_picks, width='stretch', hide_index=True) if len(hold_picks) > 0 else st.info("No HOLD signals")
+        with subtab3:
+            st.dataframe(trim_picks, width='stretch', hide_index=True) if len(trim_picks) > 0 else st.info("No trim recommendations")
 
 def display_markets_tab():
     """Markets: Global Indices by Region"""
