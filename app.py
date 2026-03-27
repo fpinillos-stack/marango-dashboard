@@ -1241,6 +1241,70 @@ def get_earnings_info(ticker):
 
 
 # ============================================
+# COMPANY → TICKER MAPPING (fallback when Excel has no Ticker data)
+# ============================================
+
+COMPANY_TICKER_MAP = {
+    'NVIDIA Corp': 'NVDA', 'Apple Inc': 'AAPL', 'Microsoft Corp': 'MSFT',
+    'Meta Platforms': 'META', 'Alphabet Inc': 'GOOGL', 'Amazon.com Inc': 'AMZN',
+    'Broadcom Inc': 'AVGO', 'Tesla Inc': 'TSLA', 'ASML Holding NV': 'ASML',
+    'SK Hynix': '000660.KS', 'Taiwan Semiconductor': 'TSM',
+    'Salesforce': 'CRM', 'ServiceNow': 'NOW', 'Palo Alto Networks': 'PANW',
+    'CrowdStrike': 'CRWD', 'Shopify': 'SHOP', 'ARM Holdings': 'ARM',
+    'Applied Materials': 'AMAT', 'Lam Research': 'LRCX', 'Caterpillar Inc': 'CAT',
+    'Eaton Corp': 'ETN', 'Docusign': 'DOCU', 'Astera Labs': 'ALAB',
+    'Fair Isaac Corpora': 'FICO', 'Fortinet': 'FTNT', 'Topicus.com': 'TOI.V',
+    'Palantir Technolog': 'PLTR', 'Seagate Technology': 'STX',
+    'Cresto Technology': 'CRDO', 'Marvell Technology': 'MRVL',
+    'Cadence Design Sys': 'CDNS', 'Texas Instruments': 'TXN',
+    'Coherent': 'COHR', 'IREN Ltd': 'IREN', 'Intel Corporation': 'INTC',
+    'Applied Optoelectr': 'AAOI', 'CoreWeave': 'CRWV', 'NIBUS Group': 'NBU',
+    'Rocket Lab': 'RKLB', 'Bloom Energy': 'BE',
+    'Safran SA': 'SAF.PA', 'Prysmian SPA': 'PRY.MI', 'Union Pacific': 'UNP',
+    'General Electric C': 'GE', 'GE Vernova': 'GEV', 'Eaton Corp': 'ETN',
+    'Kraken Robotics': 'KRKNF', 'Ferrari': 'RACE',
+    'JPMorgan Chase': 'JPM', "Moody's Corp": 'MCO', 'Adyen NV': 'ADYEN.AS',
+    'Mastercard Inc': 'MA', 'Visa Inc': 'V', 'Goldman Sachs': 'GS',
+    'MSCI': 'MSCI', 'S&P Global Inc': 'SPGI', 'Berkshire Hathaway': 'BRK-B',
+    'Robinhood Markets': 'HOOD', 'Brookfield Corp': 'BN',
+    'Intuitive Surgical': 'ISRG', 'AbbVie Inc': 'ABBV',
+    'UnitedHealth Group': 'UNH', 'Freeport McMoRan': 'FCX',
+    'Alphabet Inc': 'GOOGL', 'Applovin Corporati': 'APP',
+    'T-Mobile US': 'TMUS', 'AT&T SpaceMobile In': 'ASTS',
+    'ConocoPhillips': 'COP', 'Exxon Mobil Corp': 'XOM',
+    'Chevron Corp': 'CVX', 'NextEra Energy': 'NEE',
+    'Dominion Energy': 'D', 'Duke Energy': 'DUK',
+    'Amazon.com Inc': 'AMZN', "McDonald's Corp": 'MCD',
+    'Home Depot': 'HD', 'Costco Wholesale': 'COST',
+    'Walmart Inc': 'WMT', "L'Oreal SA": 'OR.PA',
+    'Procter & Gamble': 'PG',
+    'Freeport McMoRan': 'FCX', 'Linde plc': 'LIN',
+    'Prologis Inc': 'PLD',
+    'Freeport-McMoRan': 'FCX',
+}
+
+
+def resolve_ticker(company, row_data, df_columns):
+    """Resolve ticker from Excel data or company name mapping"""
+    # Try Excel column first
+    for col_name in ['Ticker', 'TICKER', 'ticker', 'Symbol', 'SYMBOL']:
+        if col_name in df_columns:
+            raw_val = row_data.get(col_name, '')
+            t = safe_str(raw_val)
+            if t:
+                return t
+    # Fallback: company name mapping
+    company_str = safe_str(company)
+    if company_str in COMPANY_TICKER_MAP:
+        return COMPANY_TICKER_MAP[company_str]
+    # Partial match
+    for name, tick in COMPANY_TICKER_MAP.items():
+        if name.lower() in company_str.lower() or company_str.lower() in name.lower():
+            return tick
+    return ''
+
+
+# ============================================
 # AI HELPER FUNCTIONS
 # ============================================
 
@@ -1608,12 +1672,12 @@ def display_scores_tab():
     # Build company list sorted by score
     sorted_df = b1_df.sort_values('Quality_Score', ascending=False).reset_index(drop=True)
     company_options = []
-    for _, row in sorted_df.iterrows():
-        ticker = safe_str(row.get('Ticker', ''))
-        company = safe_str(row.get('Company', ''), 'N/A')
-        score = row.get('Quality_Score', 0)
-        signal = safe_str(row.get('SIGNAL', ''))
-        label = f"{ticker} — {company}  [{score:.0f}]  {signal}" if ticker else f"{company}  [{score:.0f}]  {signal}"
+    for _, r in sorted_df.iterrows():
+        r_company = safe_str(r.get('Company', ''), 'N/A')
+        r_ticker = resolve_ticker(r_company, r, sorted_df.columns)
+        r_score = r.get('Quality_Score', 0)
+        r_signal = safe_str(r.get('SIGNAL', ''))
+        label = f"{r_ticker} — {r_company}  [{r_score:.0f}]  {r_signal}" if r_ticker else f"{r_company}  [{r_score:.0f}]  {r_signal}"
         company_options.append(label)
 
     # Company selector
@@ -1628,14 +1692,8 @@ def display_scores_tab():
     score = row.get('Quality_Score', 0)
     signal = safe_str(row.get('SIGNAL', ''), 'N/A')
 
-    # Find ticker — try multiple column name variants
-    ticker = ''
-    for col_name in ['Ticker', 'TICKER', 'ticker', 'Symbol', 'SYMBOL']:
-        if col_name in sorted_df.columns:
-            raw_val = row.get(col_name, '')
-            ticker = safe_str(raw_val)
-            if ticker:
-                break
+    # Resolve ticker from Excel or company name mapping
+    ticker = resolve_ticker(company, row, sorted_df.columns)
 
     # Score color
     if score >= 80:
@@ -2964,8 +3022,13 @@ def display_holdings_tab():
     df = load_bloque1()
     live_prices = {}
 
+    # Resolve tickers from Excel or company name mapping
+    if 'Company' in df.columns:
+        df['Ticker'] = df.apply(lambda r: resolve_ticker(safe_str(r.get('Company', '')), r, df.columns), axis=1)
+
     if 'Ticker' in df.columns:
         tickers_list = df['Ticker'].dropna().unique().tolist()
+        tickers_list = [t for t in tickers_list if isinstance(t, str) and len(t.strip()) > 0]
         live_prices = get_live_prices(tickers_list)
 
         if live_prices:
