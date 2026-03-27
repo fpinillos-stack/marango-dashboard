@@ -1639,24 +1639,34 @@ def display_bridge_tab():
         display_cols = [c for c in ['Company', 'Sector', 'B1_Score', 'Upside %', 'Wind', 'Conviction', 'Rationale']
                         if c in picks_df.columns]
 
+        bridge_col_config = {
+            "Company": st.column_config.TextColumn("Company", width="medium"),
+            "Sector": st.column_config.TextColumn("Sector", width="small"),
+            "B1_Score": st.column_config.NumberColumn("Quality", format="%d", width="small"),
+            "Upside %": st.column_config.NumberColumn("Upside", format="%+.1f%%", width="small"),
+            "Wind": st.column_config.TextColumn("Momentum", width="small"),
+            "Conviction": st.column_config.TextColumn("Signal", width="medium"),
+            "Rationale": st.column_config.TextColumn("Rationale", width="medium"),
+        }
+
         with subtab1:
             if len(buy_picks) > 0:
                 st.dataframe(buy_picks[display_cols].sort_values('B1_Score', ascending=False),
-                             width='stretch', hide_index=True)
+                             column_config=bridge_col_config, width='stretch', hide_index=True)
             else:
                 st.info("No BUY signals in current regime")
 
         with subtab2:
             if len(hold_picks) > 0:
                 st.dataframe(hold_picks[display_cols].sort_values('B1_Score', ascending=False),
-                             width='stretch', hide_index=True)
+                             column_config=bridge_col_config, width='stretch', hide_index=True)
             else:
                 st.info("No HOLD signals")
 
         with subtab3:
             if len(trim_picks) > 0:
                 st.dataframe(trim_picks[display_cols].sort_values('B1_Score', ascending=False),
-                             width='stretch', hide_index=True)
+                             column_config=bridge_col_config, width='stretch', hide_index=True)
             else:
                 st.info("No trim recommendations")
 
@@ -3608,8 +3618,8 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "MARKETS",
     "SCORES",
     "REGIME",
-    "BRIDGE",
     "MOMENTUM",
+    "BRIDGE",
     "HOLDINGS"
 ])
 
@@ -3636,16 +3646,16 @@ with tab3:
 
 with tab4:
     try:
-        display_bridge_tab()
+        display_momentum_tab()
     except Exception as e:
-        st.error(f"Bridge tab error: {str(e)}")
+        st.error(f"Momentum tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 with tab5:
     try:
-        display_momentum_tab()
+        display_bridge_tab()
     except Exception as e:
-        st.error(f"Momentum tab error: {str(e)}")
+        st.error(f"Bridge tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 with tab6:
