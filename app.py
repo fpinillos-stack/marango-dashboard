@@ -1725,11 +1725,6 @@ def display_scores_tab():
     """, unsafe_allow_html=True)
 
     # ── EARNINGS & ANALYST SUMMARY (Dexter-inspired) ────────────
-    # Debug: show available columns and ticker value (remove after confirming)
-    with st.expander("DEBUG — Column info (remove later)", expanded=False):
-        st.caption(f"Columns: {list(sorted_df.columns)}")
-        st.caption(f"Ticker value: '{ticker}' | Type: {type(row.get('Ticker', 'MISSING'))}")
-
     # Show panels for all companies — uses yfinance when ticker available
     if True:
       try:
@@ -1837,28 +1832,6 @@ def display_scores_tab():
                     <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Target Range</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{range_str}</span></div>
                     <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Fwd P/E</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{fwd_pe_str}</span></div>
                     <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Trail P/E</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{trail_pe_str}</span></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Insider trades summary
-            insider = get_insider_trades(ticker)
-            ins_label = insider.get('label', '—')
-            ins_buys = insider.get('buys', 0)
-            ins_sells = insider.get('sells', 0)
-            if insider.get('net', 0) > 0:
-                ins_color = '#10b981'
-            elif insider.get('net', 0) < 0:
-                ins_color = '#ef4444'
-            else:
-                ins_color = '#6b7280'
-
-            st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
-                        border-radius:8px; padding:0.7rem 1rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:700; color:#06b6d4; font-size:0.85rem;">INSIDER TRADES (90d)</span>
-                    <span style="font-family:JetBrains Mono; color:{ins_color}; font-weight:700;">{ins_label}</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
