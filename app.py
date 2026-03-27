@@ -890,6 +890,8 @@ def load_bridge_data():
         picks_df = picks_df[picks_df['Ticker'].astype(str).str.len() > 0]
         picks_df['B1_Score'] = pd.to_numeric(picks_df['B1_Score'], errors='coerce')
         picks_df['Upside'] = pd.to_numeric(picks_df['Upside'], errors='coerce')
+        # Fix mixed types in Size column (pyarrow ArrowTypeError)
+        picks_df['Size'] = picks_df['Size'].astype(str).replace('nan', '—')
 
         if picks_df['Upside'].max() <= 1:
             picks_df['Upside'] = (picks_df['Upside'] * 100).round(1)
@@ -1466,7 +1468,7 @@ def display_bridge_tab():
             height=400,
             margin=dict(l=0, r=0, t=50, b=0)
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col2:
         st.markdown("**STATUS**")
@@ -1494,7 +1496,7 @@ def display_bridge_tab():
     # Zones Table
     if not zones_df.empty:
         st.markdown("<h3>REGIME ACTION ZONES</h3>", unsafe_allow_html=True)
-        st.dataframe(zones_df, use_container_width=True, hide_index=True)
+        st.dataframe(zones_df, width='stretch', hide_index=True)
 
     st.divider()
 
@@ -1514,19 +1516,19 @@ def display_bridge_tab():
 
         with subtab1:
             if len(buy_picks) > 0:
-                st.dataframe(buy_picks, use_container_width=True, hide_index=True)
+                st.dataframe(buy_picks, width='stretch', hide_index=True)
             else:
                 st.info("No BUY signals in current regime")
 
         with subtab2:
             if len(hold_picks) > 0:
-                st.dataframe(hold_picks, use_container_width=True, hide_index=True)
+                st.dataframe(hold_picks, width='stretch', hide_index=True)
             else:
                 st.info("No HOLD signals")
 
         with subtab3:
             if len(trim_picks) > 0:
-                st.dataframe(trim_picks, use_container_width=True, hide_index=True)
+                st.dataframe(trim_picks, width='stretch', hide_index=True)
             else:
                 st.info("No trim recommendations")
 
@@ -1569,7 +1571,7 @@ def display_markets_tab():
                 "%Chg": st.column_config.NumberColumn("%Chg", format="%+.2f%%"),
                 "Sparkline": st.column_config.LineChartColumn("5D Trend", width="small", y_min=None, y_max=None),
             },
-            use_container_width=True,
+            width='stretch',
             hide_index=True
         )
 
@@ -1649,6 +1651,7 @@ def display_scores_tab():
 
     # ── EARNINGS & ANALYST SUMMARY (Dexter-inspired) ────────────
     if ticker:
+      try:
         earn_col1, earn_col2 = st.columns(2)
         with earn_col1:
             earnings = get_earnings_info(ticker)
@@ -1779,6 +1782,9 @@ def display_scores_tab():
             </div>
             """, unsafe_allow_html=True)
 
+      except Exception as e:
+        st.caption(f"Analyst/earnings data unavailable: {str(e)[:80]}")
+
     # Layout: Radar chart left, pillar bars right
     col_radar, col_bars = st.columns([3, 2])
 
@@ -1846,7 +1852,7 @@ def display_scores_tab():
             margin=dict(l=60, r=60, t=30, b=30),
             showlegend=False
         )
-        st.plotly_chart(fig_radar, use_container_width=True)
+        st.plotly_chart(fig_radar, width='stretch')
         st.caption("Solid = company  |  Dotted = portfolio average")
 
     with col_bars:
@@ -1981,7 +1987,7 @@ def display_scores_tab():
         textfont=dict(size=11),
         hovertemplate='<b>%{customdata[0]}</b><br>Score: %{customdata[1]:.0f}<br>Signal: %{customdata[2]}<extra></extra>'
     )
-    st.plotly_chart(fig_tree, use_container_width=True)
+    st.plotly_chart(fig_tree, width='stretch')
 
 
 def display_regime_tab():
@@ -2110,7 +2116,7 @@ def display_regime_tab():
                 font=dict(family='JetBrains Mono', color='#e5e7eb'),
                 margin=dict(l=15, r=15, t=35, b=5)
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             st.markdown(f"<div style='text-align:center; color:#9ca3af; font-size:0.8rem; margin-top:-0.5rem;'>{regime_text}</div>", unsafe_allow_html=True)
 
     # ── DIVERGENCE ALERT ───────────────────────────────────────
@@ -2541,7 +2547,7 @@ def display_momentum_tab():
         yaxis=dict(autorange='reversed'),
         showlegend=False
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     st.divider()
 
@@ -2662,7 +2668,7 @@ def display_momentum_tab():
             yaxis=dict(autorange='reversed'),
             legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(size=10))
         )
-        st.plotly_chart(fig_b, use_container_width=True)
+        st.plotly_chart(fig_b, width='stretch')
 
         # Detailed breadth table
         for b in breadth:
@@ -2731,7 +2737,7 @@ def display_analytics_tab():
             legend=dict(font=dict(size=10))
         )
         fig.update_traces(textinfo='label+percent', textfont_size=10)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col_bars:
         st.markdown("<h3>QUALITY BY SECTOR</h3>", unsafe_allow_html=True)
@@ -2754,7 +2760,7 @@ def display_analytics_tab():
             xaxis=dict(range=[0, 100], gridcolor='rgba(255,255,255,0.05)'),
             showlegend=False
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     st.divider()
 
@@ -2800,7 +2806,7 @@ def display_analytics_tab():
 
             st.dataframe(
                 signal_sector,
-                use_container_width=True
+                width='stretch'
             )
 
         with col_quality:
@@ -2823,7 +2829,7 @@ def display_analytics_tab():
                 margin=dict(l=0, r=0, t=30, b=40),
                 showlegend=False
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     st.divider()
 
@@ -2909,7 +2915,7 @@ def display_analytics_tab():
             margin=dict(l=60, r=60, t=40, b=40),
             showlegend=False
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # Pillar stats
         pcols = st.columns(len(pillar_cols))
@@ -3041,7 +3047,7 @@ def display_holdings_tab():
     st.dataframe(
         filtered_df[holdings_cols].sort_values('Quality_Score', ascending=False),
         column_config=col_config,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         height=500
     )
@@ -3111,7 +3117,7 @@ def display_ai_tab():
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                     font=dict(family='JetBrains Mono', color='#e5e7eb')
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
             with col_summary:
                 st.markdown("**REGIME STATUS**")
@@ -3155,7 +3161,7 @@ def display_ai_tab():
                 showlegend=False, xaxis_title="Count", yaxis_title="",
                 coloraxis_showscale=False
             )
-            st.plotly_chart(fig_sector, use_container_width=True)
+            st.plotly_chart(fig_sector, width='stretch')
 
     st.divider()
 
@@ -3244,7 +3250,7 @@ def display_ai_tab():
             if summary_data:
                 st.markdown("<h3>PORTFOLIO AI SIGNALS</h3>", unsafe_allow_html=True)
                 summary_df = pd.DataFrame(summary_data)
-                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                st.dataframe(summary_df, width='stretch', hide_index=True)
 
                 col_chart1, col_chart2 = st.columns(2)
 
@@ -3262,7 +3268,7 @@ def display_ai_tab():
                         plot_bgcolor='rgba(0,0,0,0)',
                         font=dict(family='JetBrains Mono', color='#e5e7eb')
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
 
                 with col_chart2:
                     conf_counts = summary_df['Confidence'].value_counts()
@@ -3282,7 +3288,7 @@ def display_ai_tab():
                         xaxis_title="",
                         yaxis_title="Count"
                     )
-                    st.plotly_chart(fig2, use_container_width=True)
+                    st.plotly_chart(fig2, width='stretch')
 
                 # Detailed analysis per ticker
                 st.divider()
@@ -3325,7 +3331,7 @@ with st.sidebar:
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("REFRESH", use_container_width=True):
+        if st.button("REFRESH", width='stretch'):
             st.cache_data.clear()
             st.success("Cache cleared")
             st.rerun()
