@@ -2944,31 +2944,7 @@ def display_holdings_tab():
             df['Daily_Change'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('change_pct', 0) if isinstance(t, str) else 0)
             df['5D_Trend'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('sparkline', []) if isinstance(t, str) else [])
 
-        # --- Insider Trades column ---
-        df['Insider'] = df['Ticker'].map(
-            lambda t: get_insider_trades(t).get('label', '—') if isinstance(t, str) and t.strip() else '—'
-        )
-        df['Insider_Net'] = df['Ticker'].map(
-            lambda t: get_insider_trades(t).get('net', 0) if isinstance(t, str) and t.strip() else 0
-        )
-
-        # --- Analyst Consensus columns ---
-        df['Target'] = df['Ticker'].map(
-            lambda t: get_analyst_data(t).get('target_mean', None) if isinstance(t, str) and t.strip() else None
-        )
-        df['Upside'] = df['Ticker'].map(
-            lambda t: get_analyst_data(t).get('upside', None) if isinstance(t, str) and t.strip() else None
-        )
-        df['Consensus'] = df['Ticker'].map(
-            lambda t: get_analyst_data(t).get('recommendation', '—') if isinstance(t, str) and t.strip() else '—'
-        )
-        df['Fwd_PE'] = df['Ticker'].map(
-            lambda t: get_analyst_data(t).get('pe_forward', None) if isinstance(t, str) and t.strip() else None
-        )
-
     # ── FILTERS ──────────────────────────────────────────────────
-    st.markdown("<h4 style='margin-top:0;'>FILTERS</h4>", unsafe_allow_html=True)
-
     filter_row1_c1, filter_row1_c2, filter_row1_c3 = st.columns([2, 2, 1])
     with filter_row1_c1:
         sectors = ['All'] + sorted(df['GICS Sector'].dropna().unique().tolist()) if 'GICS Sector' in df.columns else ['All']
@@ -2982,20 +2958,18 @@ def display_holdings_tab():
     with filter_row1_c3:
         search_ticker = st.text_input("Search", placeholder="Ticker...", key="holdings_search")
 
-    # Fundamental filters (Dexter-inspired screener)
-    with st.expander("Fundamental Filters", expanded=False):
+    # Fundamental screener filters (Dexter-inspired — uses Excel data for speed)
+    with st.expander("Fundamental Screener", expanded=False):
         fund_c1, fund_c2, fund_c3, fund_c4 = st.columns(4)
         with fund_c1:
             min_quality = st.slider("Min Quality Score", 0, 100, 0, key="hf_min_quality")
         with fund_c2:
-            insider_filter = st.selectbox("Insider Activity (90d)", ['All', 'Net Buying', 'Net Selling', 'Any Activity'],
-                                          key="hf_insider")
+            min_p1 = st.slider("Min Profitability (P1)", 0, 100, 0, key="hf_min_p1")
         with fund_c3:
-            consensus_filter = st.selectbox("Analyst Consensus", ['All', 'BUY / STRONG_BUY', 'HOLD', 'SELL / UNDERPERFORM'],
-                                            key="hf_consensus")
+            min_p3 = st.slider("Min Financial Health (P3)", 0, 100, 0, key="hf_min_p3")
         with fund_c4:
-            upside_filter = st.selectbox("Target Upside", ['All', '> 20%', '> 10%', '> 0% (Upside)', '< 0% (Downside)'],
-                                         key="hf_upside")
+            min_p5 = st.slider("Min Valuation (P5)", 0, 100, 0, key="hf_min_p5")
+        st.caption("Tip: For detailed Analyst Consensus, Insider Trades & Earnings data, select a company in the SCORES tab.")
 
     # Apply filters
     filtered_df = df.copy()
@@ -3007,32 +2981,15 @@ def display_holdings_tab():
         filtered_df = filtered_df[filtered_df['Ticker'].str.contains(search_ticker.upper(), case=False, na=False) |
                                   filtered_df['Company'].str.contains(search_ticker, case=False, na=False)]
 
-    # Fundamental filters
+    # Fundamental screener filters
     if min_quality > 0 and 'Quality_Score' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Quality_Score'] >= min_quality]
-    if insider_filter != 'All' and 'Insider_Net' in filtered_df.columns:
-        if insider_filter == 'Net Buying':
-            filtered_df = filtered_df[filtered_df['Insider_Net'] > 0]
-        elif insider_filter == 'Net Selling':
-            filtered_df = filtered_df[filtered_df['Insider_Net'] < 0]
-        elif insider_filter == 'Any Activity':
-            filtered_df = filtered_df[filtered_df['Insider_Net'] != 0]
-    if consensus_filter != 'All' and 'Consensus' in filtered_df.columns:
-        if consensus_filter == 'BUY / STRONG_BUY':
-            filtered_df = filtered_df[filtered_df['Consensus'].isin(['BUY', 'STRONG_BUY', 'OUTPERFORM', 'OVERWEIGHT'])]
-        elif consensus_filter == 'HOLD':
-            filtered_df = filtered_df[filtered_df['Consensus'].isin(['HOLD', 'NEUTRAL', 'EQUAL-WEIGHT', 'MARKET_PERFORM'])]
-        elif consensus_filter == 'SELL / UNDERPERFORM':
-            filtered_df = filtered_df[filtered_df['Consensus'].isin(['SELL', 'UNDERPERFORM', 'UNDERWEIGHT', 'STRONG_SELL'])]
-    if upside_filter != 'All' and 'Upside' in filtered_df.columns:
-        if upside_filter == '> 20%':
-            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] > 20)]
-        elif upside_filter == '> 10%':
-            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] > 10)]
-        elif upside_filter == '> 0% (Upside)':
-            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] > 0)]
-        elif upside_filter == '< 0% (Downside)':
-            filtered_df = filtered_df[filtered_df['Upside'].notna() & (filtered_df['Upside'] < 0)]
+    if min_p1 > 0 and 'P1' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['P1'].fillna(0) >= min_p1]
+    if min_p3 > 0 and 'P3' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['P3'].fillna(0) >= min_p3]
+    if min_p5 > 0 and 'P5' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['P5'].fillna(0) >= min_p5]
 
     # ── COLUMN SETUP ─────────────────────────────────────────────
     holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL', 'P1', 'P2', 'P3', 'P4', 'P5']
@@ -3071,23 +3028,6 @@ def display_holdings_tab():
             y_min=None,
             y_max=None
         )
-
-    # Insert Analyst + Insider columns after pillar scores
-    if 'Target' in filtered_df.columns:
-        holdings_cols.append('Target')
-        col_config["Target"] = st.column_config.NumberColumn("Target ($)", format="%.0f", width="small")
-    if 'Upside' in filtered_df.columns:
-        holdings_cols.append('Upside')
-        col_config["Upside"] = st.column_config.NumberColumn("Upside %", format="%+.1f%%", width="small")
-    if 'Consensus' in filtered_df.columns:
-        holdings_cols.append('Consensus')
-        col_config["Consensus"] = st.column_config.TextColumn("Consensus", width="small")
-    if 'Insider' in filtered_df.columns:
-        holdings_cols.append('Insider')
-        col_config["Insider"] = st.column_config.TextColumn("Insider 90d", width="small")
-    if 'Fwd_PE' in filtered_df.columns:
-        holdings_cols.append('Fwd_PE')
-        col_config["Fwd_PE"] = st.column_config.NumberColumn("Fwd P/E", format="%.1f", width="small")
 
     holdings_cols = [c for c in holdings_cols if c in filtered_df.columns]
 
