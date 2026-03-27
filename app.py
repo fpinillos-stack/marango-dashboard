@@ -250,7 +250,7 @@ def safe_str(val, default=''):
     s = str(val).strip()
     return default if s.lower() == 'nan' or s == '' else s
 
-@st.cache_data
+@st.cache_data(ttl=900)
 def load_bloque1():
     """Load Bloque 1 - Financial Scoring"""
     try:
@@ -858,7 +858,7 @@ def load_regime_full():
         st.error(f"Error loading Regime Full: {str(e)}")
         return None
 
-@st.cache_data
+@st.cache_data(ttl=900)
 def load_bridge_data():
     """Load Bridge actionable picks"""
     try:
@@ -1018,7 +1018,7 @@ def get_sector_performance():
     except Exception:
         return fallback
 
-@st.cache_data
+@st.cache_data(ttl=900)
 def load_score_history():
     """Load Score History from Excel"""
     try:
