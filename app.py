@@ -30,6 +30,11 @@ import json
 import os
 import yfinance as yf
 
+# Valuation module (Reverse DCF + EODHD)
+from valuation import display_valuation_tab
+# Attribution module (Return decomposition + EODHD)
+from attribution import display_attribution_tab
+
 # Anthropic API
 try:
     import anthropic
@@ -3614,13 +3619,15 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "MARKETS",
     "SCORES",
     "REGIME",
     "MOMENTUM",
     "BRIDGE",
-    "HOLDINGS"
+    "HOLDINGS",
+    "VALUATION",
+    "ATTRIBUTION"
 ])
 
 with tab1:
@@ -3663,6 +3670,20 @@ with tab6:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab7:
+    try:
+        display_valuation_tab()
+    except Exception as e:
+        st.error(f"Valuation tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab8:
+    try:
+        display_attribution_tab()
+    except Exception as e:
+        st.error(f"Attribution tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
