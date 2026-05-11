@@ -34,6 +34,12 @@ import yfinance as yf
 from valuation import display_valuation_tab
 # Attribution module (Return decomposition + EODHD)
 from attribution import display_attribution_tab
+# Historical multiples module
+from multiples import display_multiples_tab
+# Quality scores module (Piotroski / Altman / Beneish)
+from quality import display_quality_tab
+# Peer comparison module
+from peers import display_peers_tab
 
 # Anthropic API
 try:
@@ -3619,7 +3625,7 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "MARKETS",
     "SCORES",
     "REGIME",
@@ -3627,7 +3633,10 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "BRIDGE",
     "HOLDINGS",
     "VALUATION",
-    "ATTRIBUTION"
+    "ATTRIBUTION",
+    "MULTIPLES",
+    "QUALITY",
+    "PEERS"
 ])
 
 with tab1:
@@ -3684,6 +3693,27 @@ with tab8:
         display_attribution_tab()
     except Exception as e:
         st.error(f"Attribution tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab9:
+    try:
+        display_multiples_tab()
+    except Exception as e:
+        st.error(f"Multiples tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab10:
+    try:
+        display_quality_tab()
+    except Exception as e:
+        st.error(f"Quality tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab11:
+    try:
+        display_peers_tab()
+    except Exception as e:
+        st.error(f"Peers tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
