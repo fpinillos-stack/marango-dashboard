@@ -269,6 +269,9 @@ h4 { font-size: 0.88rem !important; color: #475569 !important; text-transform: u
 p, span, label, .stText { color: #334155; }
 .stCaption, [data-testid="stCaptionContainer"] { color: #94a3b8 !important; }
 
+/* plain markdown text is NOT a card — kills the empty white spacer boxes */
+.stMarkdown { background: transparent !important; border: none !important; box-shadow: none !important; }
+
 [data-testid="stMetric"], [data-testid="stExpander"] {
   background: #ffffff !important;
   border: 1px solid #e7ebf0 !important;
@@ -281,8 +284,14 @@ p, span, label, .stText { color: #334155; }
 [data-testid="stMetricLabel"] { color: #64748b !important; }
 .stDataFrame { border: 1px solid #e7ebf0 !important; border-radius: 12px !important; backdrop-filter: none !important; }
 
-.stTabs [data-baseweb="tab-list"] { gap: 0.3rem !important; border-bottom: 1px solid #e7ebf0 !important; }
-.stTabs [data-baseweb="tab"] { color: #64748b !important; font-weight: 600 !important; font-size: 0.82rem !important; padding: 0.45rem 1rem !important; }
+/* Tabs — generous breathing room */
+.stTabs [data-baseweb="tab-list"] { gap: 1.6rem !important; border-bottom: 1px solid #e7ebf0 !important; padding-bottom: 0 !important; }
+.stTabs [data-baseweb="tab"] {
+  color: #64748b !important; font-weight: 600 !important; font-size: 0.8rem !important;
+  letter-spacing: 0.04em !important; padding: 0.5rem 0.15rem !important; margin: 0 !important;
+  background: transparent !important;
+}
+.stTabs [data-baseweb="tab"]:hover { color: #334155 !important; }
 .stTabs [aria-selected="true"] { color: #ea580c !important; border-bottom: 2px solid #ea580c !important; }
 
 .stTextInput input, .stNumberInput input { background: #ffffff !important; color: #1e293b !important; border: 1px solid #d8dee6 !important; }
@@ -301,6 +310,9 @@ p, span, label, .stText { color: #334155; }
 hr { border-color: #e7ebf0 !important; margin: 1.4rem 0 !important; }
 .streamlit-expanderHeader, [data-testid="stExpander"] summary { background: #f8fafc !important; color: #475569 !important; }
 .stAlert { border-radius: 10px !important; }
+
+/* tighten vertical rhythm — less dead space between blocks */
+[data-testid="stVerticalBlock"] { gap: 0.65rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
