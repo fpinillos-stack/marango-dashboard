@@ -1563,7 +1563,7 @@ def render_kpi_strip():
         arrow = "&#9650;" if delta_positive else "&#9660;"
         return f"""
         <div style="background:rgba(255,255,255,0.95);border:1px solid rgba(15,23,42,0.07);
-                    border-top:2px solid {accent_color};border-radius:0.5rem;padding:1rem;
+                    border-radius:0.5rem;padding:1rem;
                     text-align:center;backdrop-filter:blur(8px);">
             <div style="color:#64748b;font-size:0.65rem;text-transform:uppercase;
                         letter-spacing:0.1em;margin-bottom:0.4rem;font-family:JetBrains Mono;">{label}</div>
@@ -3622,7 +3622,7 @@ header_date = datetime.now().strftime('%d %b %Y').upper()
 
 st.markdown(f"""
 <div style="background:linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
-            border-top:3px solid #ea580c; border-bottom:1px solid rgba(249,115,22,0.2);
+            border-bottom:1px solid #e7ebf0;
             padding:0.6rem 1.5rem; font-family:'JetBrains Mono',monospace;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.3rem;">
         <div style="display:flex; align-items:center; gap:1rem;">
