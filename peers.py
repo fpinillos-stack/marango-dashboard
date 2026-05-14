@@ -141,7 +141,7 @@ def _format_value(metric, v):
 
 
 def _row_html(metric, values_by_ticker, tickers):
-    color_for = {t: "#e5e7eb" for t in tickers}
+    color_for = {t: "#1e293b" for t in tickers}
     if metric in HIGHER_BETTER or metric in LOWER_BETTER:
         nums = [(t, float(v)) for t in tickers
                 for v in [values_by_ticker.get(t)]
@@ -154,23 +154,23 @@ def _row_html(metric, values_by_ticker, tickers):
                 best_v, worst_v = min(vals), max(vals)
             for t, v in nums:
                 if v == best_v:
-                    color_for[t] = "#10b981"
+                    color_for[t] = "#059669"
                 elif v == worst_v:
-                    color_for[t] = "#ef4444"
+                    color_for[t] = "#dc2626"
 
-    label_color = "#9ca3af" if metric in TEXT_METRICS else "#f97316"
+    label_color = "#64748b" if metric in TEXT_METRICS else "#ea580c"
     label_style = ("padding:0.5rem 0.75rem;color:" + label_color +
                    ";font-family:JetBrains Mono,monospace;font-size:0.78rem;"
-                   "border-bottom:1px solid rgba(255,255,255,0.05);"
+                   "border-bottom:1px solid rgba(15,23,42,0.07);"
                    "text-align:left;font-weight:600;white-space:nowrap;")
     cells = ['<td style="' + label_style + '">' + metric + '</td>']
     for t in tickers:
         v = values_by_ticker.get(t)
         formatted = _format_value(metric, v)
-        weight = "700" if color_for[t] in ("#10b981", "#ef4444") else "400"
+        weight = "700" if color_for[t] in ("#059669", "#dc2626") else "400"
         cell_style = ("padding:0.5rem 0.75rem;color:" + color_for[t] +
                       ";font-family:JetBrains Mono,monospace;font-size:0.82rem;"
-                      "border-bottom:1px solid rgba(255,255,255,0.05);"
+                      "border-bottom:1px solid rgba(15,23,42,0.07);"
                       "text-align:right;font-weight:" + weight +
                       ";white-space:nowrap;")
         cells.append('<td style="' + cell_style + '">' + formatted + '</td>')
@@ -180,9 +180,9 @@ def _row_html(metric, values_by_ticker, tickers):
 def display_peers_tab():
     st.markdown(
         '<div style="margin:1rem 0 1.5rem 0;">'
-        '<div style="font-family:JetBrains Mono,monospace;color:#f97316;'
+        '<div style="font-family:JetBrains Mono,monospace;color:#ea580c;'
         'font-size:1.5rem;font-weight:700;letter-spacing:0.05em;">PEER COMPARISON</div>'
-        '<div style="color:#9ca3af;font-size:0.85rem;letter-spacing:0.05em;'
+        '<div style="color:#64748b;font-size:0.85rem;letter-spacing:0.05em;'
         'text-transform:uppercase;">Side-by-side fundamentals · Best/Worst color-coded · Powered by EODHD</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -243,16 +243,16 @@ def display_peers_tab():
         values_by_metric[m] = {r["Ticker"]: r.get(m) for r in rows_data}
 
     header_cells = [
-        '<th style="padding:0.6rem 0.75rem;color:#9ca3af;'
-        'background:rgba(255,255,255,0.02);'
+        '<th style="padding:0.6rem 0.75rem;color:#64748b;'
+        'background:rgba(15,23,42,0.04);'
         'font-family:JetBrains Mono,monospace;font-size:0.7rem;'
         'letter-spacing:0.1em;text-transform:uppercase;text-align:left;'
         'border-bottom:2px solid rgba(249,115,22,0.3);">Metric</th>'
     ]
     for t in tickers_in_data:
         header_cells.append(
-            '<th style="padding:0.6rem 0.75rem;color:#f97316;'
-            'background:rgba(255,255,255,0.02);'
+            '<th style="padding:0.6rem 0.75rem;color:#ea580c;'
+            'background:rgba(15,23,42,0.04);'
             'font-family:JetBrains Mono,monospace;font-size:0.78rem;'
             'letter-spacing:0.05em;text-align:right;'
             'border-bottom:2px solid rgba(249,115,22,0.3);'
@@ -264,8 +264,8 @@ def display_peers_tab():
     body_html = "".join(body_rows)
 
     table_html = (
-        '<div style="background:rgba(15,15,25,0.8);border-radius:0.75rem;'
-        'border:1px solid rgba(255,255,255,0.05);overflow-x:auto;'
+        '<div style="background:rgba(255,255,255,0.92);border-radius:0.75rem;'
+        'border:1px solid rgba(15,23,42,0.07);overflow-x:auto;'
         'backdrop-filter:blur(12px);">'
         '<table style="width:100%;border-collapse:collapse;">'
         '<thead>' + header_html + '</thead>'

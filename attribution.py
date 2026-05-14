@@ -306,19 +306,19 @@ def _waterfall_chart(ann_eps, ann_pe, ann_div, ann_residual, ann_total):
         y=values,
         text=[f"{v:+.2f}%" for v in values[:-1]] + [f"{(ann_total or 0)*100:+.2f}%"],
         textposition="outside",
-        connector={"line": {"color": "rgba(255,255,255,0.15)"}},
-        increasing={"marker": {"color": "#10b981"}},
-        decreasing={"marker": {"color": "#ef4444"}},
-        totals={"marker": {"color": "#f97316"}},
+        connector={"line": {"color": "rgba(15,23,42,0.13)"}},
+        increasing={"marker": {"color": "#059669"}},
+        decreasing={"marker": {"color": "#dc2626"}},
+        totals={"marker": {"color": "#ea580c"}},
     ))
     fig.update_layout(
         height=360,
         margin=dict(l=10, r=10, t=20, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="JetBrains Mono, monospace", color="#e5e7eb", size=11),
-        yaxis=dict(title="Annualised %", gridcolor="rgba(255,255,255,0.05)",
-                   zeroline=True, zerolinecolor="rgba(255,255,255,0.2)"),
+        font=dict(family="JetBrains Mono, monospace", color="#1e293b", size=11),
+        yaxis=dict(title="Annualised %", gridcolor="rgba(15,23,42,0.07)",
+                   zeroline=True, zerolinecolor="rgba(15,23,42,0.16)"),
         xaxis=dict(showgrid=False),
         showlegend=False,
     )
@@ -329,11 +329,11 @@ def display_attribution_tab():
     """Return Attribution tab — decompose TR into EPS · P/E · Dividends · Residual."""
     st.markdown("""
     <div style="margin: 1rem 0 1.5rem 0;">
-        <div style="font-family: 'JetBrains Mono', monospace; color: #f97316;
+        <div style="font-family: 'JetBrains Mono', monospace; color: #ea580c;
                     font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em;">
             RETURN ATTRIBUTION
         </div>
-        <div style="color: #9ca3af; font-size: 0.85rem; letter-spacing: 0.05em;
+        <div style="color: #64748b; font-size: 0.85rem; letter-spacing: 0.05em;
                     text-transform: uppercase;">
             EPS growth · Multiple expansion · Dividends · Residual — Powered by EODHD
         </div>
@@ -386,9 +386,9 @@ def display_attribution_tab():
     if first_ok:
         st.markdown(f"""
         <div style="margin: 0.5rem 0 1rem 0;">
-            <div style="font-family: 'JetBrains Mono', monospace; color: #e5e7eb;
+            <div style="font-family: 'JetBrains Mono', monospace; color: #1e293b;
                         font-size: 1.1rem; font-weight: 600;">{first_ok['name']}</div>
-            <div style="color: #9ca3af; font-size: 0.8rem;">
+            <div style="color: #64748b; font-size: 0.8rem;">
                 Currency: {first_ok['currency']}
             </div>
         </div>

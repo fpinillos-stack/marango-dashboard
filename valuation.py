@@ -142,16 +142,16 @@ def reverse_dcf_implied_growth(price, eps0, horizon_years,
 def reverse_dcf_classify(g):
     """Return (label, hex_color) classifying implied growth."""
     if g is None:
-        return ("N/A", "#9ca3af")
+        return ("N/A", "#64748b")
     if g > 0.25:
-        return ("HEROIC", "#ef4444")
+        return ("HEROIC", "#dc2626")
     if g > 0.15:
-        return ("DEMANDING", "#f97316")
+        return ("DEMANDING", "#ea580c")
     if g > 0.08:
-        return ("REASONABLE", "#10b981")
+        return ("REASONABLE", "#059669")
     if g > 0.0:
-        return ("CHEAP", "#3b82f6")
-    return ("DEEP VALUE", "#8b5cf6")
+        return ("CHEAP", "#2563eb")
+    return ("DEEP VALUE", "#7c3aed")
 
 
 def _eps_and_price_from_eodhd(fund: dict, rt: dict):
@@ -189,11 +189,11 @@ def display_valuation_tab():
     """Reverse DCF — implied EPS growth at 3y/5y/10y horizons."""
     st.markdown("""
     <div style="margin: 1rem 0 1.5rem 0;">
-        <div style="font-family: 'JetBrains Mono', monospace; color: #f97316;
+        <div style="font-family: 'JetBrains Mono', monospace; color: #ea580c;
                     font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em;">
             REVERSE DCF
         </div>
-        <div style="color: #9ca3af; font-size: 0.85rem; letter-spacing: 0.05em;
+        <div style="color: #64748b; font-size: 0.85rem; letter-spacing: 0.05em;
                     text-transform: uppercase;">
             Implied EPS growth · Two-stage model · Powered by EODHD
         </div>
@@ -253,9 +253,9 @@ def display_valuation_tab():
 
     st.markdown(f"""
     <div style="margin: 0.5rem 0 1rem 0;">
-        <div style="font-family: 'JetBrains Mono', monospace; color: #e5e7eb;
+        <div style="font-family: 'JetBrains Mono', monospace; color: #1e293b;
                     font-size: 1.1rem; font-weight: 600;">{name}</div>
-        <div style="color: #9ca3af; font-size: 0.8rem;">
+        <div style="color: #64748b; font-size: 0.8rem;">
             {sector} · {industry} · {currency}
         </div>
     </div>
@@ -288,10 +288,10 @@ def display_valuation_tab():
             cls_label, cls_color = reverse_dcf_classify(g)
             g_str = f"{g*100:+.1f}%" if g is not None else "N/A"
             st.markdown(f"""
-            <div style="background: rgba(15,15,25,0.8); padding: 1.5rem;
+            <div style="background: rgba(255,255,255,0.92); padding: 1.5rem;
                         border-radius: 0.75rem; border: 1px solid {cls_color}55;
                         text-align: center; backdrop-filter: blur(12px);">
-                <div style="color: #9ca3af; font-size: 0.7rem; letter-spacing: 0.15em;
+                <div style="color: #64748b; font-size: 0.7rem; letter-spacing: 0.15em;
                             text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">
                     {label} HORIZON
                 </div>

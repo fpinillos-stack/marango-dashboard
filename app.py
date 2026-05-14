@@ -1,6 +1,6 @@
 """
 ═══════════════════════════════════════════════════════════════
-MARANGO TERMINAL — v4.1
+MARANGO TERMINAL — v5.0
 Bloomberg/FactSet-Style Dashboard
 ═══════════════════════════════════════════════════════════════
 Modernized UI with glassmorphism, dark theme, monospace fonts.
@@ -9,7 +9,7 @@ All original functionality preserved with Bloomberg-style aesthetics.
 Features:
 ✅ Terminal-style header with live status
 ✅ Custom KPI cards with colored indicators (collapsible)
-✅ Bloomberg dark theme (black #0a0a0f + orange accents)
+✅ Bloomberg dark theme (black #f7f8fa + orange accents)
 ✅ Monospace font for all data/numbers
 ✅ Glassmorphism cards with backdrop blur
 ✅ 6 comprehensive tabs with improved charts
@@ -55,7 +55,7 @@ except ImportError:
 # ============================================
 
 st.set_page_config(
-    page_title="Marango Terminal v4.2",
+    page_title="Marango Terminal v5.0",
     page_icon="⌨️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -75,18 +75,18 @@ st.markdown("""
 
     /* Main background */
     .main {
-        background: #0a0a0f;
-        color: #e5e7eb;
+        background: #f7f8fa;
+        color: #1e293b;
     }
 
     .stApp {
-        background: #0a0a0f;
+        background: #f7f8fa;
     }
 
     /* Headers */
     h1, h2, h3, h4, h5, h6 {
         font-family: 'JetBrains Mono', monospace;
-        color: #f97316;
+        color: #ea580c;
         font-weight: 700;
     }
 
@@ -97,9 +97,9 @@ st.markdown("""
 
     /* Cards/Containers */
     .stMarkdown, .stDataFrame, [data-testid="stMetric"] {
-        background: rgba(15, 15, 25, 0.8);
+        background: rgba(255,255,255,0.92);
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(15,23,42,0.07);
         border-radius: 0.75rem;
     }
 
@@ -107,14 +107,14 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] {
         gap: 1rem;
         background: transparent;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(15,23,42,0.07);
         padding: 0;
     }
 
     .stTabs [data-baseweb="tab"] {
         height: 2.5rem;
         background: transparent;
-        color: #9ca3af;
+        color: #64748b;
         font-weight: 600;
         font-family: 'JetBrains Mono', monospace;
         padding: 0 1.5rem;
@@ -125,27 +125,27 @@ st.markdown("""
 
     .stTabs [aria-selected="true"] {
         background: transparent;
-        color: #f97316;
-        border-bottom: 2px solid #f97316;
+        color: #ea580c;
+        border-bottom: 2px solid #ea580c;
     }
 
     .stTabs [data-baseweb="tab"]:hover {
-        color: #f97316;
+        color: #ea580c;
         border-bottom: 2px solid rgba(249, 115, 22, 0.5);
     }
 
     /* DataFrames — Bloomberg-style */
     .dataframe, [data-testid="stDataFrame"] > div {
         font-size: 0.85rem;
-        background: #0f0f1a;
-        color: #e5e7eb;
+        background: #ffffff;
+        color: #1e293b;
         border-radius: 6px;
     }
 
     .dataframe thead th,
     [data-testid="stDataFrame"] th {
-        background: #14142a !important;
-        color: #f97316 !important;
+        background: #eef2f6 !important;
+        color: #ea580c !important;
         font-weight: 600;
         text-transform: uppercase;
         font-size: 0.7rem;
@@ -158,14 +158,14 @@ st.markdown("""
     .dataframe tbody td,
     [data-testid="stDataFrame"] td {
         padding: 0.55rem 0.75rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(15,23,42,0.05);
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.8rem;
     }
 
     .dataframe tbody tr:nth-child(even),
     [data-testid="stDataFrame"] tr:nth-child(even) {
-        background: rgba(255, 255, 255, 0.015);
+        background: rgba(15,23,42,0.035);
     }
 
     .dataframe tbody tr:hover,
@@ -175,8 +175,8 @@ st.markdown("""
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: #1a1a2e;
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        background: #f8fafc;
+        border-right: 1px solid rgba(15,23,42,0.07);
     }
 
     [data-testid="stSidebarContent"] {
@@ -185,7 +185,7 @@ st.markdown("""
 
     /* Buttons */
     .stButton button {
-        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
         color: white;
         border: none;
         border-radius: 0.5rem;
@@ -202,7 +202,7 @@ st.markdown("""
 
     /* Divider */
     hr {
-        border-color: rgba(255, 255, 255, 0.05);
+        border-color: rgba(15,23,42,0.07);
         margin: 2rem 0;
     }
 
@@ -211,7 +211,7 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace;
         font-size: 2rem;
         font-weight: 700;
-        color: #f97316;
+        color: #ea580c;
         text-shadow: 0 0 10px rgba(249, 115, 22, 0.3);
     }
 
@@ -222,20 +222,20 @@ st.markdown("""
 
     /* Info/Warning/Error boxes */
     .stInfo, .stWarning, .stError, .stSuccess {
-        background: rgba(15, 15, 25, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255,255,255,0.92);
+        border: 1px solid rgba(15,23,42,0.07);
         border-radius: 0.5rem;
         backdrop-filter: blur(12px);
     }
 
     /* Text */
     p, .stText {
-        color: #e5e7eb;
+        color: #1e293b;
     }
 
     /* Caption */
     .stCaption {
-        color: #9ca3af;
+        color: #64748b;
         font-size: 0.8rem;
     }
 
@@ -247,10 +247,63 @@ st.markdown("""
 
     /* Progress bar */
     .stProgress > div > div > div {
-        background: linear-gradient(90deg, #f97316, #06b6d4);
+        background: linear-gradient(90deg, #ea580c, #0891b2);
     }
 </style>
 """, unsafe_allow_html=True)
+
+# ============================================
+# INGENIO-STYLE LIGHT REFINEMENT (override layer)
+# ============================================
+st.markdown("""
+<style>
+.stApp, .main { background: #f7f8fa !important; color: #1e293b !important; }
+.block-container { padding: 2.2rem 2.6rem 3rem 2.6rem !important; max-width: 1480px !important; }
+
+h1,h2,h3,h4,h5,h6 { color: #1e293b !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
+h1 { font-size: 1.7rem !important; }
+h2 { font-size: 1.3rem !important; margin-top: 0.4rem !important; }
+h3 { font-size: 1.05rem !important; color: #334155 !important; }
+h4 { font-size: 0.88rem !important; color: #475569 !important; text-transform: uppercase; letter-spacing: 0.06em !important; }
+
+p, span, label, .stText { color: #334155; }
+.stCaption, [data-testid="stCaptionContainer"] { color: #94a3b8 !important; }
+
+[data-testid="stMetric"], [data-testid="stExpander"] {
+  background: #ffffff !important;
+  border: 1px solid #e7ebf0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.03) !important;
+  backdrop-filter: none !important;
+}
+[data-testid="stMetric"] { padding: 0.85rem 1.05rem !important; }
+[data-testid="stMetricValue"] { color: #0f172a !important; font-size: 1.5rem !important; text-shadow: none !important; }
+[data-testid="stMetricLabel"] { color: #64748b !important; }
+.stDataFrame { border: 1px solid #e7ebf0 !important; border-radius: 12px !important; backdrop-filter: none !important; }
+
+.stTabs [data-baseweb="tab-list"] { gap: 0.3rem !important; border-bottom: 1px solid #e7ebf0 !important; }
+.stTabs [data-baseweb="tab"] { color: #64748b !important; font-weight: 600 !important; font-size: 0.82rem !important; padding: 0.45rem 1rem !important; }
+.stTabs [aria-selected="true"] { color: #ea580c !important; border-bottom: 2px solid #ea580c !important; }
+
+.stTextInput input, .stNumberInput input { background: #ffffff !important; color: #1e293b !important; border: 1px solid #d8dee6 !important; }
+[data-baseweb="select"] > div { background: #ffffff !important; border: 1px solid #d8dee6 !important; }
+
+.stButton button {
+  background: #ea580c !important; color: #ffffff !important; border: none !important;
+  border-radius: 8px !important; font-weight: 600 !important; box-shadow: none !important;
+}
+.stButton button:hover { background: #c2410c !important; transform: none !important; box-shadow: 0 2px 8px rgba(234,88,12,0.25) !important; }
+
+[data-testid="stDataFrame"] th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #e2e8f0 !important; }
+[data-testid="stDataFrame"] td { color: #334155 !important; }
+
+[data-testid="stSidebar"] { background: #ffffff !important; border-right: 1px solid #e7ebf0 !important; }
+hr { border-color: #e7ebf0 !important; margin: 1.4rem 0 !important; }
+.streamlit-expanderHeader, [data-testid="stExpander"] summary { background: #f8fafc !important; color: #475569 !important; }
+.stAlert { border-radius: 10px !important; }
+</style>
+""", unsafe_allow_html=True)
+
 
 # ============================================
 # DATA LOADING FUNCTIONS (UNCHANGED)
@@ -1493,16 +1546,16 @@ def render_kpi_strip():
         sell_signals = len(df[df['Quality_Score'] < 65])
 
     # KPI Cards - Bloomberg style HTML (4 cards, no portfolio value)
-    def kpi_card(label, value, delta, delta_positive=True, accent_color="#f97316"):
-        d_color = "#10b981" if delta_positive else "#ef4444"
+    def kpi_card(label, value, delta, delta_positive=True, accent_color="#ea580c"):
+        d_color = "#059669" if delta_positive else "#dc2626"
         arrow = "&#9650;" if delta_positive else "&#9660;"
         return f"""
-        <div style="background:rgba(15,15,25,0.9);border:1px solid rgba(255,255,255,0.05);
+        <div style="background:rgba(255,255,255,0.95);border:1px solid rgba(15,23,42,0.07);
                     border-top:2px solid {accent_color};border-radius:0.5rem;padding:1rem;
                     text-align:center;backdrop-filter:blur(8px);">
-            <div style="color:#9ca3af;font-size:0.65rem;text-transform:uppercase;
+            <div style="color:#64748b;font-size:0.65rem;text-transform:uppercase;
                         letter-spacing:0.1em;margin-bottom:0.4rem;font-family:JetBrains Mono;">{label}</div>
-            <div style="color:#e5e7eb;font-size:1.4rem;font-weight:700;
+            <div style="color:#1e293b;font-size:1.4rem;font-weight:700;
                         font-family:JetBrains Mono;margin-bottom:0.3rem;">{value}</div>
             <div style="color:{d_color};font-size:0.75rem;font-family:JetBrains Mono;">
                 {arrow} {delta}</div>
@@ -1511,10 +1564,10 @@ def render_kpi_strip():
     regime_ok = regime['combined'] < 60
 
     cards_html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;">'
-    cards_html += kpi_card("QUALITY AVG", f"{avg_quality:.1f}", "/ 100", avg_quality >= 70, "#06b6d4")
-    cards_html += kpi_card("REGIME", f"{regime['combined']:.0f}", f"{regime['combined'] - 60:+.0f} vs neutral", regime_ok, "#10b981" if regime_ok else "#ef4444")
-    cards_html += kpi_card("HOLDINGS", f"{num_holdings}", f"{buy_signals} BUY | {hold_signals} HOLD", True, "#06b6d4")
-    cards_html += kpi_card("SIGNALS", f"{buy_signals}B | {hold_signals}H | {sell_signals}S", f"{underweight_signals} UW | {sell_signals} SELL", sell_signals == 0, "#f97316")
+    cards_html += kpi_card("QUALITY AVG", f"{avg_quality:.1f}", "/ 100", avg_quality >= 70, "#0891b2")
+    cards_html += kpi_card("REGIME", f"{regime['combined']:.0f}", f"{regime['combined'] - 60:+.0f} vs neutral", regime_ok, "#059669" if regime_ok else "#dc2626")
+    cards_html += kpi_card("HOLDINGS", f"{num_holdings}", f"{buy_signals} BUY | {hold_signals} HOLD", True, "#0891b2")
+    cards_html += kpi_card("SIGNALS", f"{buy_signals}B | {hold_signals}H | {sell_signals}S", f"{underweight_signals} UW | {sell_signals} SELL", sell_signals == 0, "#ea580c")
     cards_html += '</div>'
 
     st.markdown(cards_html, unsafe_allow_html=True)
@@ -1534,19 +1587,19 @@ def display_bridge_tab():
     with col_regime:
         r_score = regime['combined']
         if r_score <= 35:
-            r_color, r_label = '#10b981', 'RISK-ON'
+            r_color, r_label = '#059669', 'RISK-ON'
         elif r_score <= 60:
-            r_color, r_label = '#06b6d4', 'NEUTRAL'
+            r_color, r_label = '#0891b2', 'NEUTRAL'
         elif r_score <= 80:
-            r_color, r_label = '#f59e0b', 'CAUTIOUS'
+            r_color, r_label = '#d97706', 'CAUTIOUS'
         else:
-            r_color, r_label = '#ef4444', 'RISK-OFF'
+            r_color, r_label = '#dc2626', 'RISK-OFF'
         st.markdown(f"""
-        <div style="background:rgba(255,255,255,0.03); border:1px solid {r_color}40; border-radius:8px; padding:1rem; text-align:center;">
-            <div style="color:#9ca3af; font-size:0.75rem; text-transform:uppercase;">Market Regime</div>
+        <div style="background:rgba(15,23,42,0.05); border:1px solid {r_color}40; border-radius:8px; padding:1rem; text-align:center;">
+            <div style="color:#64748b; font-size:0.75rem; text-transform:uppercase;">Market Regime</div>
             <div style="font-family:JetBrains Mono; font-size:2rem; font-weight:700; color:{r_color};">{r_score:.0f}</div>
             <div style="color:{r_color}; font-size:0.9rem; font-weight:600;">{r_label}</div>
-            <div style="color:#6b7280; font-size:0.7rem; margin-top:0.3rem;">Tech {regime['technical']:.0f} | Sent {regime['sentiment']:.0f} | Liq {regime['liquidity']:.0f}</div>
+            <div style="color:#94a3b8; font-size:0.7rem; margin-top:0.3rem;">Tech {regime['technical']:.0f} | Sent {regime['sentiment']:.0f} | Liq {regime['liquidity']:.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1559,39 +1612,39 @@ def display_bridge_tab():
         else:
             avg_mom, tailwinds, headwinds = 0, 0, 0
         if avg_mom > 2:
-            m_color = '#10b981'
+            m_color = '#059669'
         elif avg_mom > -2:
-            m_color = '#f59e0b'
+            m_color = '#d97706'
         else:
-            m_color = '#ef4444'
+            m_color = '#dc2626'
         st.markdown(f"""
-        <div style="background:rgba(255,255,255,0.03); border:1px solid {m_color}40; border-radius:8px; padding:1rem; text-align:center;">
-            <div style="color:#9ca3af; font-size:0.75rem; text-transform:uppercase;">Sector Momentum</div>
+        <div style="background:rgba(15,23,42,0.05); border:1px solid {m_color}40; border-radius:8px; padding:1rem; text-align:center;">
+            <div style="color:#64748b; font-size:0.75rem; text-transform:uppercase;">Sector Momentum</div>
             <div style="font-family:JetBrains Mono; font-size:2rem; font-weight:700; color:{m_color};">{avg_mom:+.1f}</div>
             <div style="color:{m_color}; font-size:0.9rem; font-weight:600;">{'POSITIVE' if avg_mom > 2 else 'NEGATIVE' if avg_mom < -2 else 'MIXED'}</div>
-            <div style="color:#6b7280; font-size:0.7rem; margin-top:0.3rem;">{tailwinds} tailwinds | {headwinds} headwinds</div>
+            <div style="color:#94a3b8; font-size:0.7rem; margin-top:0.3rem;">{tailwinds} tailwinds | {headwinds} headwinds</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col_combined:
         cb_active = '🚨' in str(regime.get('circuit_breaker', ''))
         if cb_active:
-            bridge_color, bridge_label = '#ef4444', 'DEFENSIVE'
+            bridge_color, bridge_label = '#dc2626', 'DEFENSIVE'
         elif r_score <= 35 and avg_mom > 0:
-            bridge_color, bridge_label = '#10b981', 'FULL OFFENSE'
+            bridge_color, bridge_label = '#059669', 'FULL OFFENSE'
         elif r_score <= 60 and avg_mom > 0:
-            bridge_color, bridge_label = '#06b6d4', 'SELECTIVE BUY'
+            bridge_color, bridge_label = '#0891b2', 'SELECTIVE BUY'
         elif r_score <= 60:
-            bridge_color, bridge_label = '#f59e0b', 'HOLD / ROTATE'
+            bridge_color, bridge_label = '#d97706', 'HOLD / ROTATE'
         elif r_score <= 80:
-            bridge_color, bridge_label = '#f59e0b', 'REDUCE RISK'
+            bridge_color, bridge_label = '#d97706', 'REDUCE RISK'
         else:
-            bridge_color, bridge_label = '#ef4444', 'DEFENSIVE'
+            bridge_color, bridge_label = '#dc2626', 'DEFENSIVE'
         st.markdown(f"""
         <div style="background:rgba(249,115,22,0.06); border:1px solid {bridge_color}40; border-radius:8px; padding:1rem; text-align:center;">
-            <div style="color:#f97316; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Bridge Signal</div>
+            <div style="color:#ea580c; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Bridge Signal</div>
             <div style="font-family:JetBrains Mono; font-size:1.6rem; font-weight:700; color:{bridge_color}; margin:0.3rem 0;">{bridge_label}</div>
-            <div style="color:#6b7280; font-size:0.7rem;">Quality × Regime × Momentum</div>
+            <div style="color:#94a3b8; font-size:0.7rem;">Quality × Regime × Momentum</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1724,7 +1777,7 @@ def display_markets_tab():
         table_data = []
         for name, data in region_indices.items():
             chg = data.get('change_pct', 0)
-            color = '#10b981' if chg >= 0 else '#ef4444'
+            color = '#059669' if chg >= 0 else '#dc2626'
             arrow = '▲' if chg >= 0 else '▼'
             table_data.append({
                 'Index': name,
@@ -1797,13 +1850,13 @@ def display_scores_tab():
 
     # Score color
     if score >= 80:
-        score_color = "#10b981"
+        score_color = "#059669"
     elif score >= 65:
-        score_color = "#06b6d4"
+        score_color = "#0891b2"
     elif score >= 50:
-        score_color = "#f59e0b"
+        score_color = "#d97706"
     else:
-        score_color = "#ef4444"
+        score_color = "#dc2626"
 
     # Header card with company info
     st.markdown(f"""
@@ -1811,13 +1864,13 @@ def display_scores_tab():
                 border:1px solid rgba(249,115,22,0.3); border-radius:12px; padding:1.2rem 1.5rem; margin:0.8rem 0 1.2rem 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
             <div>
-                <span style="font-family:JetBrains Mono; font-size:1.4rem; font-weight:700; color:#f97316;">{ticker}</span>
-                <span style="color:#9ca3af; font-size:1rem; margin-left:0.8rem;">{company}</span>
-                <br><span style="color:#6b7280; font-size:0.85rem;">{sector}</span>
+                <span style="font-family:JetBrains Mono; font-size:1.4rem; font-weight:700; color:#ea580c;">{ticker}</span>
+                <span style="color:#64748b; font-size:1rem; margin-left:0.8rem;">{company}</span>
+                <br><span style="color:#94a3b8; font-size:0.85rem;">{sector}</span>
             </div>
             <div style="text-align:right;">
                 <span style="font-family:JetBrains Mono; font-size:2rem; font-weight:700; color:{score_color};">{score:.0f}</span>
-                <span style="color:#9ca3af; font-size:0.9rem;">/100</span>
+                <span style="color:#64748b; font-size:0.9rem;">/100</span>
                 <br><span style="font-size:1rem;">{signal}</span>
             </div>
         </div>
@@ -1858,21 +1911,21 @@ def display_scores_tab():
             last_e = earnings.get('last_earnings', '—') or '—'
 
             st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+            <div style="background:rgba(15,23,42,0.05); border:1px solid rgba(15,23,42,0.08);
                         border-radius:8px; padding:1rem; margin-bottom:0.5rem;">
-                <div style="font-weight:700; color:#06b6d4; font-size:0.95rem; margin-bottom:0.6rem;">
+                <div style="font-weight:700; color:#0891b2; font-size:0.95rem; margin-bottom:0.6rem;">
                     EARNINGS & FUNDAMENTALS
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem 1.5rem; font-size:0.82rem;">
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Revenue</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{rev_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Market Cap</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{mcap_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Net Income</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{ni_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">EBITDA</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{ebitda_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Gross Margin</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{gm_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">EPS (TTM)</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{eps_t_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">EPS (Fwd)</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{eps_f_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Next Earnings</span><span style="color:#f97316;font-family:JetBrains Mono;">{next_e}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Last Earnings</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{last_e}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Revenue</span><span style="color:#1e293b;font-family:JetBrains Mono;">{rev_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Market Cap</span><span style="color:#1e293b;font-family:JetBrains Mono;">{mcap_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Net Income</span><span style="color:#1e293b;font-family:JetBrains Mono;">{ni_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">EBITDA</span><span style="color:#1e293b;font-family:JetBrains Mono;">{ebitda_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Gross Margin</span><span style="color:#1e293b;font-family:JetBrains Mono;">{gm_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">EPS (TTM)</span><span style="color:#1e293b;font-family:JetBrains Mono;">{eps_t_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">EPS (Fwd)</span><span style="color:#1e293b;font-family:JetBrains Mono;">{eps_f_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Next Earnings</span><span style="color:#ea580c;font-family:JetBrains Mono;">{next_e}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Last Earnings</span><span style="color:#1e293b;font-family:JetBrains Mono;">{last_e}</span></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1896,25 +1949,25 @@ def display_scores_tab():
 
             if upside is not None:
                 if upside > 10:
-                    up_color = "#10b981"
+                    up_color = "#059669"
                 elif upside > 0:
-                    up_color = "#06b6d4"
+                    up_color = "#0891b2"
                 else:
-                    up_color = "#ef4444"
+                    up_color = "#dc2626"
                 up_str = f"{upside:+.1f}%"
             else:
-                up_color = "#6b7280"
+                up_color = "#94a3b8"
                 up_str = '—'
 
-            rec_colors = {'BUY': '#10b981', 'STRONG_BUY': '#10b981', 'OUTPERFORM': '#10b981', 'OVERWEIGHT': '#10b981',
-                          'HOLD': '#f59e0b', 'NEUTRAL': '#f59e0b', 'EQUAL-WEIGHT': '#f59e0b',
-                          'SELL': '#ef4444', 'UNDERPERFORM': '#ef4444', 'UNDERWEIGHT': '#ef4444'}
-            rec_color = rec_colors.get(rec, '#9ca3af')
+            rec_colors = {'BUY': '#059669', 'STRONG_BUY': '#059669', 'OUTPERFORM': '#059669', 'OVERWEIGHT': '#059669',
+                          'HOLD': '#d97706', 'NEUTRAL': '#d97706', 'EQUAL-WEIGHT': '#d97706',
+                          'SELL': '#dc2626', 'UNDERPERFORM': '#dc2626', 'UNDERWEIGHT': '#dc2626'}
+            rec_color = rec_colors.get(rec, '#64748b')
 
             st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+            <div style="background:rgba(15,23,42,0.05); border:1px solid rgba(15,23,42,0.08);
                         border-radius:8px; padding:1rem; margin-bottom:0.5rem;">
-                <div style="font-weight:700; color:#06b6d4; font-size:0.95rem; margin-bottom:0.6rem;">
+                <div style="font-weight:700; color:#0891b2; font-size:0.95rem; margin-bottom:0.6rem;">
                     ANALYST CONSENSUS ({n_analysts} analysts)
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
@@ -1922,16 +1975,16 @@ def display_scores_tab():
                         <span style="font-family:JetBrains Mono; font-size:1.5rem; font-weight:700; color:{rec_color};">{rec}</span>
                     </div>
                     <div style="text-align:right;">
-                        <span style="color:#9ca3af;font-size:0.8rem;">Target</span>
-                        <span style="font-family:JetBrains Mono; font-size:1.3rem; font-weight:700; color:#e5e7eb;"> {target_str}</span>
+                        <span style="color:#64748b;font-size:0.8rem;">Target</span>
+                        <span style="font-family:JetBrains Mono; font-size:1.3rem; font-weight:700; color:#1e293b;"> {target_str}</span>
                         <span style="font-family:JetBrains Mono; font-size:1.1rem; font-weight:700; color:{up_color};"> ({up_str})</span>
                     </div>
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem 1.5rem; font-size:0.82rem;">
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Current Price</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{cur_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Target Range</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{range_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Fwd P/E</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{fwd_pe_str}</span></div>
-                    <div style="display:flex;justify-content:space-between;"><span style="color:#9ca3af;">Trail P/E</span><span style="color:#e5e7eb;font-family:JetBrains Mono;">{trail_pe_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Current Price</span><span style="color:#1e293b;font-family:JetBrains Mono;">{cur_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Target Range</span><span style="color:#1e293b;font-family:JetBrains Mono;">{range_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Fwd P/E</span><span style="color:#1e293b;font-family:JetBrains Mono;">{fwd_pe_str}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Trail P/E</span><span style="color:#1e293b;font-family:JetBrains Mono;">{trail_pe_str}</span></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1984,25 +2037,25 @@ def display_scores_tab():
             theta=radar_labels,
             fill='toself',
             fillcolor='rgba(249,115,22,0.12)',
-            line=dict(color='#f97316', width=2),
-            marker=dict(size=6, color='#f97316', line=dict(color='#0a0a0f', width=1)),
+            line=dict(color='#ea580c', width=2),
+            marker=dict(size=6, color='#ea580c', line=dict(color='#f7f8fa', width=1)),
             name=company[:20]
         ))
         fig_radar.update_layout(
             polar=dict(
                 radialaxis=dict(visible=True, range=[0, 100],
-                               gridcolor='rgba(255,255,255,0.06)',
+                               gridcolor='rgba(15,23,42,0.08)',
                                tickvals=[25, 50, 75, 100],
-                               tickfont=dict(size=8, color='#4b5563'),
-                               linecolor='rgba(255,255,255,0.03)'),
-                angularaxis=dict(gridcolor='rgba(255,255,255,0.08)',
-                                tickfont=dict(size=10, color='#d1d5db'),
-                                linecolor='rgba(255,255,255,0.05)'),
+                               tickfont=dict(size=8, color='#94a3b8'),
+                               linecolor='rgba(15,23,42,0.05)'),
+                angularaxis=dict(gridcolor='rgba(15,23,42,0.10)',
+                                tickfont=dict(size=10, color='#334155'),
+                                linecolor='rgba(15,23,42,0.07)'),
                 bgcolor='rgba(0,0,0,0)'
             ),
-            template='plotly_dark', height=420,
+            template='plotly_white', height=420,
             paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            font=dict(family='JetBrains Mono', color='#1e293b'),
             margin=dict(l=60, r=60, t=30, b=30),
             showlegend=False
         )
@@ -2020,21 +2073,21 @@ def display_scores_tab():
             val = float(val)
             # Color based on value
             if val >= 80:
-                bar_color = "#10b981"
+                bar_color = "#059669"
             elif val >= 60:
-                bar_color = "#06b6d4"
+                bar_color = "#0891b2"
             elif val >= 40:
-                bar_color = "#f59e0b"
+                bar_color = "#d97706"
             else:
-                bar_color = "#ef4444"
+                bar_color = "#dc2626"
             pct = min(val, 100)
             st.markdown(f"""
             <div style="margin-bottom:0.6rem;">
                 <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.2rem;">
-                    <span style="color:#e5e7eb;">{pinfo['name']}</span>
+                    <span style="color:#1e293b;">{pinfo['name']}</span>
                     <span style="color:{bar_color}; font-weight:700; font-family:JetBrains Mono;">{val:.0f}</span>
                 </div>
-                <div style="background:rgba(255,255,255,0.06); border-radius:4px; height:14px; overflow:hidden;">
+                <div style="background:rgba(15,23,42,0.08); border-radius:4px; height:14px; overflow:hidden;">
                     <div style="background:{bar_color}; width:{pct}%; height:100%; border-radius:4px; transition:width 0.3s;"></div>
                 </div>
             </div>
@@ -2054,16 +2107,16 @@ def display_scores_tab():
             if pd.isna(p_val):
                 p_val = 0
             if p_val >= 80:
-                p_color = "#10b981"
+                p_color = "#059669"
             elif p_val >= 60:
-                p_color = "#06b6d4"
+                p_color = "#0891b2"
             elif p_val >= 40:
-                p_color = "#f59e0b"
+                p_color = "#d97706"
             else:
-                p_color = "#ef4444"
+                p_color = "#dc2626"
 
             st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+            <div style="background:rgba(15,23,42,0.05); border:1px solid rgba(15,23,42,0.08);
                         border-radius:8px; padding:0.8rem; margin-bottom:0.8rem;">
                 <div style="font-weight:700; color:{p_color}; font-size:0.95rem; margin-bottom:0.5rem;">
                     {pinfo['name']} — <span style="font-family:JetBrains Mono;">{p_val:.0f}/100</span>
@@ -2078,21 +2131,21 @@ def display_scores_tab():
                 # Sub-score color
                 if s_val is not None and pd.notna(s_val):
                     if float(s_val) >= 75:
-                        s_color = "#10b981"
+                        s_color = "#059669"
                     elif float(s_val) >= 50:
-                        s_color = "#06b6d4"
+                        s_color = "#0891b2"
                     elif float(s_val) >= 25:
-                        s_color = "#f59e0b"
+                        s_color = "#d97706"
                     else:
-                        s_color = "#ef4444"
+                        s_color = "#dc2626"
                 else:
-                    s_color = "#6b7280"
+                    s_color = "#94a3b8"
 
                 st.markdown(f"""
                 <div style="display:flex; justify-content:space-between; padding:0.15rem 0; font-size:0.82rem;
-                            border-bottom:1px solid rgba(255,255,255,0.04);">
-                    <span style="color:#9ca3af;">{metric}</span>
-                    <span><span style="color:#6b7280; margin-right:0.5rem;">{m_display}</span>
+                            border-bottom:1px solid rgba(15,23,42,0.06);">
+                    <span style="color:#64748b;">{metric}</span>
+                    <span><span style="color:#94a3b8; margin-right:0.5rem;">{m_display}</span>
                     <span style="color:{s_color}; font-weight:600; font-family:JetBrains Mono;">{s_display}</span></span>
                 </div>
                 """, unsafe_allow_html=True)
@@ -2125,14 +2178,14 @@ def display_scores_tab():
         path=['GICS Sector', 'Label'],
         values='Quality_Score',
         color='Signal_Num',
-        color_continuous_scale=['#ef4444', '#f97316', '#6b7280', '#06b6d4', '#10b981'],
+        color_continuous_scale=['#dc2626', '#ea580c', '#94a3b8', '#0891b2', '#059669'],
         range_color=[-2, 2],
         hover_data={'Company': True, 'Quality_Score': ':.0f', 'SIGNAL': True, 'Signal_Num': False, 'Label': False}
     )
     fig_tree.update_layout(
-        template='plotly_dark', height=500,
+        template='plotly_white', height=500,
         paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='JetBrains Mono', color='#e5e7eb'),
+        font=dict(family='JetBrains Mono', color='#1e293b'),
         margin=dict(l=5, r=5, t=30, b=5),
         coloraxis_showscale=False
     )
@@ -2175,7 +2228,7 @@ def display_regime_tab():
 
     # Data source badge
     src_label = "LIVE — Yahoo Finance" if is_live else "STATIC — Excel Data"
-    src_color = "#10b981" if is_live else "#f59e0b"
+    src_color = "#059669" if is_live else "#d97706"
     st.markdown(f"""
     <div style="text-align:right; margin-bottom:0.5rem;">
         <span style="background:{src_color}22; color:{src_color}; border:1px solid {src_color}44;
@@ -2192,13 +2245,13 @@ def display_regime_tab():
     except (ValueError, TypeError):
         combined = 0
     if combined >= 70:
-        c_color = "#10b981"
+        c_color = "#059669"
     elif combined >= 55:
-        c_color = "#06b6d4"
+        c_color = "#0891b2"
     elif combined >= 45:
-        c_color = "#f59e0b"
+        c_color = "#d97706"
     else:
-        c_color = "#ef4444"
+        c_color = "#dc2626"
 
     override_text = data.get('override', '')
     action_text = data.get('action', '')
@@ -2208,16 +2261,16 @@ def display_regime_tab():
                 border:1px solid rgba(249,115,22,0.3); border-radius:12px; padding:1.2rem 1.5rem; margin-bottom:1.2rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
             <div>
-                <span style="color:#9ca3af; font-size:0.85rem; text-transform:uppercase;">Combined Regime Score</span><br>
+                <span style="color:#64748b; font-size:0.85rem; text-transform:uppercase;">Combined Regime Score</span><br>
                 <span style="font-family:JetBrains Mono; font-size:2.5rem; font-weight:700; color:{c_color};">{combined:.0f}</span>
-                <span style="color:#6b7280; font-size:1rem;">/100</span>
+                <span style="color:#94a3b8; font-size:1rem;">/100</span>
             </div>
             <div style="text-align:right; max-width:60%;">
                 <span style="font-size:1rem; font-weight:600; color:{c_color};">{safe_str(data.get('combined_status', ''))}</span><br>
-                <span style="color:#f59e0b; font-size:0.85rem;">{override_text}</span>
+                <span style="color:#d97706; font-size:0.85rem;">{override_text}</span>
             </div>
         </div>
-        {'<div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px solid rgba(255,255,255,0.08); color:#e5e7eb; font-size:0.85rem;"><b>Action:</b> ' + action_text + '</div>' if action_text else ''}
+        {'<div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px solid rgba(15,23,42,0.10); color:#1e293b; font-size:0.85rem;"><b>Action:</b> ' + action_text + '</div>' if action_text else ''}
     </div>
     """, unsafe_allow_html=True)
 
@@ -2237,24 +2290,24 @@ def display_regime_tab():
             except (ValueError, TypeError):
                 score_val = 50
             if score_val >= 70:
-                s_color = "#10b981"
+                s_color = "#059669"
             elif score_val >= 55:
-                s_color = "#06b6d4"
+                s_color = "#0891b2"
             elif score_val >= 45:
-                s_color = "#f59e0b"
+                s_color = "#d97706"
             else:
-                s_color = "#ef4444"
+                s_color = "#dc2626"
 
             fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=score_val,
-                title={'text': name.upper(), 'font': {'size': 12, 'color': '#9ca3af', 'family': 'JetBrains Mono'}},
+                title={'text': name.upper(), 'font': {'size': 12, 'color': '#64748b', 'family': 'JetBrains Mono'}},
                 number={'font': {'color': s_color, 'family': 'JetBrains Mono', 'size': 28}},
                 gauge={
-                    'axis': {'range': [0, 100], 'tickcolor': '#4b5563', 'tickwidth': 1,
-                             'tickfont': {'size': 9, 'color': '#4b5563'}},
+                    'axis': {'range': [0, 100], 'tickcolor': '#94a3b8', 'tickwidth': 1,
+                             'tickfont': {'size': 9, 'color': '#94a3b8'}},
                     'bar': {'color': s_color, 'thickness': 0.75},
-                    'bgcolor': 'rgba(255,255,255,0.02)',
+                    'bgcolor': 'rgba(15,23,42,0.04)',
                     'borderwidth': 0,
                     'steps': [
                         {'range': [0, 45], 'color': 'rgba(239,68,68,0.06)'},
@@ -2265,13 +2318,13 @@ def display_regime_tab():
                 }
             ))
             fig.update_layout(
-                template='plotly_dark', height=200,
+                template='plotly_white', height=200,
                 paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                font=dict(family='JetBrains Mono', color='#1e293b'),
                 margin=dict(l=15, r=15, t=35, b=5)
             )
             st.plotly_chart(fig, width='stretch')
-            st.markdown(f"<div style='text-align:center; color:#9ca3af; font-size:0.8rem; margin-top:-0.5rem;'>{regime_text}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center; color:#64748b; font-size:0.8rem; margin-top:-0.5rem;'>{regime_text}</div>", unsafe_allow_html=True)
 
     # ── DIVERGENCE ALERT ───────────────────────────────────────
     div_status = data.get('divergence_status', '')
@@ -2280,9 +2333,9 @@ def display_regime_tab():
         st.markdown(f"""
         <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2);
                     border-radius:8px; padding:0.8rem 1rem; margin:0.5rem 0;">
-            <span style="font-weight:700; color:#f59e0b;">DIVERGENCE:</span>
-            <span style="color:#e5e7eb;"> {div_status}</span><br>
-            <span style="color:#9ca3af; font-size:0.85rem;">{div_guidance}</span>
+            <span style="font-weight:700; color:#d97706;">DIVERGENCE:</span>
+            <span style="color:#1e293b;"> {div_status}</span><br>
+            <span style="color:#64748b; font-size:0.85rem;">{div_guidance}</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2294,11 +2347,11 @@ def display_regime_tab():
         for ind in indicators:
             status = ind.get('status', '')
             if '✅' in status or 'Risk-On' in status:
-                status_color = "#10b981"
+                status_color = "#059669"
             elif '🔴' in status or 'Risk-Off' in status:
-                status_color = "#ef4444"
+                status_color = "#dc2626"
             else:
-                status_color = "#f59e0b"
+                status_color = "#d97706"
 
             val = ind.get('value', '')
             if isinstance(val, (int, float)):
@@ -2318,9 +2371,9 @@ def display_regime_tab():
 
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
-                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem;">
-                <span style="color:#e5e7eb; flex:2;">{ind.get('indicator', '')}</span>
-                <span style="color:#f97316; font-family:JetBrains Mono; font-weight:600; flex:1; text-align:center;">{val_str}</span>
+                        border-bottom:1px solid rgba(15,23,42,0.06); font-size:0.88rem;">
+                <span style="color:#1e293b; flex:2;">{ind.get('indicator', '')}</span>
+                <span style="color:#ea580c; font-family:JetBrains Mono; font-weight:600; flex:1; text-align:center;">{val_str}</span>
                 <span style="color:{status_color}; flex:1; text-align:right;">{status}</span>
             </div>
             """, unsafe_allow_html=True)
@@ -2338,17 +2391,17 @@ def display_regime_tab():
             try:
                 if isinstance(score_val, (int, float)) and not pd.isna(score_val):
                     if score_val >= 60:
-                        s_col = "#10b981"
+                        s_col = "#059669"
                     elif score_val >= 30:
-                        s_col = "#f59e0b"
+                        s_col = "#d97706"
                     else:
-                        s_col = "#ef4444"
+                        s_col = "#dc2626"
                     score_str = f"{score_val:.0f}"
                 else:
-                    s_col = "#6b7280"
+                    s_col = "#94a3b8"
                     score_str = "—"
             except (ValueError, TypeError):
-                s_col = "#6b7280"
+                s_col = "#94a3b8"
                 score_str = "—"
 
             val = ind.get('value', '')
@@ -2367,9 +2420,9 @@ def display_regime_tab():
 
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
-                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem;">
-                <span style="color:#e5e7eb; flex:2;">{ind.get('indicator', '')}</span>
-                <span style="color:#f97316; font-family:JetBrains Mono; font-weight:600; flex:1; text-align:center;">{val_str}</span>
+                        border-bottom:1px solid rgba(15,23,42,0.06); font-size:0.88rem;">
+                <span style="color:#1e293b; flex:2;">{ind.get('indicator', '')}</span>
+                <span style="color:#ea580c; font-family:JetBrains Mono; font-weight:600; flex:1; text-align:center;">{val_str}</span>
                 <span style="color:{s_col}; font-family:JetBrains Mono; font-weight:700; flex:1; text-align:right;">{score_str}/100</span>
             </div>
             """, unsafe_allow_html=True)
@@ -2387,21 +2440,21 @@ def display_regime_tab():
         col_idx = i % 3
         triggered = trig.get('triggered', '')
         is_active = '🔴' in triggered or 'YES' in triggered.upper()
-        border_color = 'rgba(239,68,68,0.4)' if is_active else 'rgba(255,255,255,0.06)'
-        bg = 'rgba(239,68,68,0.08)' if is_active else 'rgba(255,255,255,0.02)'
+        border_color = 'rgba(239,68,68,0.4)' if is_active else 'rgba(15,23,42,0.08)'
+        bg = 'rgba(239,68,68,0.08)' if is_active else 'rgba(15,23,42,0.04)'
 
         with trigger_cols[col_idx]:
             st.markdown(f"""
             <div style="background:{bg}; border:1px solid {border_color};
                         border-radius:8px; padding:0.8rem; margin-bottom:0.6rem; min-height:120px;">
-                <div style="font-weight:700; color:{'#ef4444' if is_active else '#e5e7eb'}; font-size:0.9rem; margin-bottom:0.3rem;">
+                <div style="font-weight:700; color:{'#dc2626' if is_active else '#1e293b'}; font-size:0.9rem; margin-bottom:0.3rem;">
                     {trig.get('trigger', '')} {triggered}
                 </div>
-                <div style="color:#9ca3af; font-size:0.8rem;">
+                <div style="color:#64748b; font-size:0.8rem;">
                     Condition: {trig.get('condition', '')}<br>
-                    Current: <span style="color:#f97316; font-family:JetBrains Mono;">{trig.get('current', '')}</span>
+                    Current: <span style="color:#ea580c; font-family:JetBrains Mono;">{trig.get('current', '')}</span>
                 </div>
-                <div style="color:#6b7280; font-size:0.75rem; margin-top:0.3rem;">{trig.get('action', '')}</div>
+                <div style="color:#94a3b8; font-size:0.75rem; margin-top:0.3rem;">{trig.get('action', '')}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -2413,17 +2466,17 @@ def display_regime_tab():
     for sec in data.get('sectors', []):
         signal = sec.get('signal', '')
         if '✅' in signal or 'Overweight' in signal:
-            sig_color = "#10b981"
+            sig_color = "#059669"
         elif '🔴' in signal or 'Underweight' in signal or 'Avoid' in signal:
-            sig_color = "#ef4444"
+            sig_color = "#dc2626"
         else:
-            sig_color = "#f59e0b"
+            sig_color = "#d97706"
 
         st.markdown(f"""
         <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
-                    border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem;">
-            <span style="color:#e5e7eb; flex:2;">{sec.get('sector', '')}</span>
-            <span style="color:#6b7280; flex:1; text-align:center;">Beta: {sec.get('beta', '')}</span>
+                    border-bottom:1px solid rgba(15,23,42,0.06); font-size:0.88rem;">
+            <span style="color:#1e293b; flex:2;">{sec.get('sector', '')}</span>
+            <span style="color:#94a3b8; flex:1; text-align:center;">Beta: {sec.get('beta', '')}</span>
             <span style="color:{sig_color}; font-weight:600; flex:1; text-align:right;">{signal}</span>
         </div>
         """, unsafe_allow_html=True)
@@ -2432,11 +2485,11 @@ def display_regime_tab():
     st.markdown(f"""
     <div style="background:rgba(249,115,22,0.06); border:1px solid rgba(249,115,22,0.2);
                 border-radius:8px; padding:1rem; margin-top:1rem;">
-        <div style="font-weight:700; color:#f97316; margin-bottom:0.5rem;">CURRENT POSITIONING</div>
-        <div style="color:#10b981; font-size:0.9rem; margin-bottom:0.2rem;"><b>FAVOR:</b> {data.get('favor', '')}</div>
-        <div style="color:#f59e0b; font-size:0.9rem; margin-bottom:0.2rem;"><b>NEUTRAL:</b> {data.get('neutral_sectors', '')}</div>
-        <div style="color:#ef4444; font-size:0.9rem; margin-bottom:0.2rem;"><b>AVOID:</b> {data.get('avoid', '')}</div>
-        <div style="color:#e5e7eb; font-size:0.9rem; margin-top:0.5rem; border-top:1px solid rgba(255,255,255,0.08); padding-top:0.5rem;">
+        <div style="font-weight:700; color:#ea580c; margin-bottom:0.5rem;">CURRENT POSITIONING</div>
+        <div style="color:#059669; font-size:0.9rem; margin-bottom:0.2rem;"><b>FAVOR:</b> {data.get('favor', '')}</div>
+        <div style="color:#d97706; font-size:0.9rem; margin-bottom:0.2rem;"><b>NEUTRAL:</b> {data.get('neutral_sectors', '')}</div>
+        <div style="color:#dc2626; font-size:0.9rem; margin-bottom:0.2rem;"><b>AVOID:</b> {data.get('avoid', '')}</div>
+        <div style="color:#1e293b; font-size:0.9rem; margin-top:0.5rem; border-top:1px solid rgba(15,23,42,0.10); padding-top:0.5rem;">
             <b>MARANGO:</b> {data.get('marango_action', '')}
         </div>
     </div>
@@ -2663,8 +2716,8 @@ def display_momentum_tab():
         st.markdown(f"""
         <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3);
                     border-radius:8px; padding:1rem; margin-bottom:1rem;">
-            <div style="color:#10b981; font-weight:700; font-size:1rem; margin-bottom:0.3rem;">TAILWINDS ({len(tailwinds)})</div>
-            <div style="color:#e5e7eb; font-size:0.9rem;">{tw_text}</div>
+            <div style="color:#059669; font-weight:700; font-size:1rem; margin-bottom:0.3rem;">TAILWINDS ({len(tailwinds)})</div>
+            <div style="color:#1e293b; font-size:0.9rem;">{tw_text}</div>
         </div>
         """, unsafe_allow_html=True)
     with col_hw:
@@ -2672,15 +2725,15 @@ def display_momentum_tab():
         st.markdown(f"""
         <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3);
                     border-radius:8px; padding:1rem; margin-bottom:1rem;">
-            <div style="color:#ef4444; font-weight:700; font-size:1rem; margin-bottom:0.3rem;">HEADWINDS ({len(headwinds)})</div>
-            <div style="color:#e5e7eb; font-size:0.9rem;">{hw_text}</div>
+            <div style="color:#dc2626; font-weight:700; font-size:1rem; margin-bottom:0.3rem;">HEADWINDS ({len(headwinds)})</div>
+            <div style="color:#1e293b; font-size:0.9rem;">{hw_text}</div>
         </div>
         """, unsafe_allow_html=True)
 
     # Momentum bar chart
     sectors = [m['sector'] for m in momentum]
     scores = [m['momentum_score'] for m in momentum]
-    colors = ['#10b981' if s > 2 else '#ef4444' if s < -2 else '#f59e0b' for s in scores]
+    colors = ['#059669' if s > 2 else '#dc2626' if s < -2 else '#d97706' for s in scores]
 
     fig = go.Figure(go.Bar(
         y=sectors,
@@ -2691,13 +2744,13 @@ def display_momentum_tab():
         textposition='outside',
         textfont=dict(family='JetBrains Mono', size=11)
     ))
-    fig.add_vline(x=0, line_color='rgba(255,255,255,0.2)', line_width=1)
+    fig.add_vline(x=0, line_color='rgba(15,23,42,0.16)', line_width=1)
     fig.update_layout(
-        template='plotly_dark', height=400,
+        template='plotly_white', height=400,
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='JetBrains Mono', color='#e5e7eb'),
+        font=dict(family='JetBrains Mono', color='#1e293b'),
         margin=dict(l=10, r=60, t=30, b=10),
-        xaxis=dict(title='Momentum Score (Relative Strength)', gridcolor='rgba(255,255,255,0.05)'),
+        xaxis=dict(title='Momentum Score (Relative Strength)', gridcolor='rgba(15,23,42,0.07)'),
         yaxis=dict(autorange='reversed'),
         showlegend=False
     )
@@ -2716,38 +2769,38 @@ def display_momentum_tab():
 
         if score > 5:
             signal = 'STRONG TAILWIND'
-            sig_color = '#10b981'
+            sig_color = '#059669'
         elif score > 2:
             signal = 'TAILWIND'
-            sig_color = '#10b981'
+            sig_color = '#059669'
         elif score > -2:
             signal = 'NEUTRAL'
-            sig_color = '#f59e0b'
+            sig_color = '#d97706'
         elif score > -5:
             signal = 'HEADWIND'
-            sig_color = '#ef4444'
+            sig_color = '#dc2626'
         else:
             signal = 'STRONG HEADWIND'
-            sig_color = '#ef4444'
+            sig_color = '#dc2626'
 
         def fmt_ret(val):
             if val is None:
                 return '—'
-            color = '#10b981' if val > 0 else '#ef4444'
+            color = '#059669' if val > 0 else '#dc2626'
             return f"<span style='color:{color};font-family:JetBrains Mono;'>{val:+.1f}%</span>"
 
         st.markdown(f"""
         <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0;
-                    border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.88rem;">
+                    border-bottom:1px solid rgba(15,23,42,0.08); font-size:0.88rem;">
             <div style="flex:2;">
-                <span style="color:#e5e7eb; font-weight:600;">{sector}</span>
-                <span style="color:#6b7280; font-size:0.8rem; margin-left:0.5rem;">({m['etf']}) · {holdings} holdings · {weight:.0f}%</span>
+                <span style="color:#1e293b; font-weight:600;">{sector}</span>
+                <span style="color:#94a3b8; font-size:0.8rem; margin-left:0.5rem;">({m['etf']}) · {holdings} holdings · {weight:.0f}%</span>
             </div>
             <div style="flex:3; display:flex; gap:1rem; justify-content:center;">
-                <span style="color:#9ca3af; font-size:0.8rem;">1M:</span>{fmt_ret(m['rel_1m'])}
-                <span style="color:#9ca3af; font-size:0.8rem;">3M:</span>{fmt_ret(m['rel_3m'])}
-                <span style="color:#9ca3af; font-size:0.8rem;">6M:</span>{fmt_ret(m['rel_6m'])}
-                <span style="color:#9ca3af; font-size:0.8rem;">12M:</span>{fmt_ret(m['rel_12m'])}
+                <span style="color:#64748b; font-size:0.8rem;">1M:</span>{fmt_ret(m['rel_1m'])}
+                <span style="color:#64748b; font-size:0.8rem;">3M:</span>{fmt_ret(m['rel_3m'])}
+                <span style="color:#64748b; font-size:0.8rem;">6M:</span>{fmt_ret(m['rel_6m'])}
+                <span style="color:#64748b; font-size:0.8rem;">12M:</span>{fmt_ret(m['rel_12m'])}
             </div>
             <div style="flex:1; text-align:right;">
                 <span style="color:{sig_color}; font-weight:600;">{signal}</span>
@@ -2759,7 +2812,7 @@ def display_momentum_tab():
 
     # ── SECTOR BREADTH ANALYSIS (Pillar 1B from B4 framework) ──
     st.markdown("<h3>SECTOR BREADTH ANALYSIS</h3>", unsafe_allow_html=True)
-    st.markdown("<div style='color:#9ca3af; font-size:0.85rem; margin-bottom:1rem;'>Full sector breadth: % of ALL stocks in each SPDR sector ETF above key moving averages. Based on ~25 largest holdings per sector.</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#64748b; font-size:0.85rem; margin-bottom:1rem;'>Full sector breadth: % of ALL stocks in each SPDR sector ETF above key moving averages. Based on ~25 largest holdings per sector.</div>", unsafe_allow_html=True)
 
     breadth = get_sector_breadth()
     if breadth:
@@ -2776,14 +2829,14 @@ def display_momentum_tab():
             (col_b3, 'STRONG SECTORS', strong_sectors, str(strong_sectors), '>60% above 200-DMA'),
             (col_b4, 'WEAK SECTORS', weak_sectors, str(weak_sectors), '<40% above 200-DMA')
         ]:
-            color = '#10b981' if (isinstance(val, (int,float)) and ((label.startswith('AVG') and val >= 60) or (label == 'STRONG SECTORS' and val >= 6))) else '#ef4444' if (isinstance(val, (int,float)) and ((label.startswith('AVG') and val < 40) or (label == 'WEAK SECTORS' and val >= 4))) else '#f59e0b'
+            color = '#059669' if (isinstance(val, (int,float)) and ((label.startswith('AVG') and val >= 60) or (label == 'STRONG SECTORS' and val >= 6))) else '#dc2626' if (isinstance(val, (int,float)) and ((label.startswith('AVG') and val < 40) or (label == 'WEAK SECTORS' and val >= 4))) else '#d97706'
             with col:
                 st.markdown(f"""
-                <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08);
+                <div style="background:rgba(15,23,42,0.04); border:1px solid rgba(15,23,42,0.10);
                             border-radius:8px; padding:0.8rem; text-align:center;">
-                    <div style="color:#9ca3af; font-size:0.75rem; text-transform:uppercase;">{label}</div>
+                    <div style="color:#64748b; font-size:0.75rem; text-transform:uppercase;">{label}</div>
                     <div style="font-family:JetBrains Mono; font-size:1.5rem; font-weight:700; color:{color};">{fmt}</div>
-                    <div style="color:#6b7280; font-size:0.7rem;">{ref}</div>
+                    <div style="color:#94a3b8; font-size:0.7rem;">{ref}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -2809,16 +2862,16 @@ def display_momentum_tab():
         ))
         fig_b.add_vline(x=60, line_dash='dash', line_color='rgba(16,185,129,0.4)', line_width=1,
                         annotation_text='Healthy (60%)', annotation_position='top',
-                        annotation=dict(font=dict(size=9, color='#10b981')))
+                        annotation=dict(font=dict(size=9, color='#059669')))
         fig_b.add_vline(x=40, line_dash='dash', line_color='rgba(239,68,68,0.4)', line_width=1,
                         annotation_text='Weak (40%)', annotation_position='bottom',
-                        annotation=dict(font=dict(size=9, color='#ef4444')))
+                        annotation=dict(font=dict(size=9, color='#dc2626')))
         fig_b.update_layout(
-            template='plotly_dark', height=380, barmode='group',
+            template='plotly_white', height=380, barmode='group',
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            font=dict(family='JetBrains Mono', color='#1e293b'),
             margin=dict(l=10, r=30, t=30, b=10),
-            xaxis=dict(title='% of Stocks', range=[0, 105], gridcolor='rgba(255,255,255,0.05)'),
+            xaxis=dict(title='% of Stocks', range=[0, 105], gridcolor='rgba(15,23,42,0.07)'),
             yaxis=dict(autorange='reversed'),
             legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(size=10))
         )
@@ -2831,17 +2884,17 @@ def display_momentum_tab():
             gc = b['golden_cross_pct']
             score = b['breadth_score']
 
-            c200 = '#10b981' if pct200 >= 60 else '#ef4444' if pct200 < 40 else '#f59e0b'
-            c50 = '#10b981' if pct50 >= 60 else '#ef4444' if pct50 < 40 else '#f59e0b'
-            c_score = '#10b981' if score >= 50 else '#ef4444' if score < 0 else '#f59e0b'
+            c200 = '#059669' if pct200 >= 60 else '#dc2626' if pct200 < 40 else '#d97706'
+            c50 = '#059669' if pct50 >= 60 else '#dc2626' if pct50 < 40 else '#d97706'
+            c_score = '#059669' if score >= 50 else '#dc2626' if score < 0 else '#d97706'
 
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0;
-                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem;">
-                <span style="color:#e5e7eb; font-weight:600; flex:2;">{b['sector']} <span style="color:#6b7280; font-size:0.75rem;">({b['etf']} · {b['stocks_analyzed']} stocks)</span></span>
-                <span style="flex:1; text-align:center;"><span style="color:#9ca3af; font-size:0.75rem;">200-DMA:</span> <span style="color:{c200}; font-family:JetBrains Mono; font-weight:700;">{pct200:.0f}%</span></span>
-                <span style="flex:1; text-align:center;"><span style="color:#9ca3af; font-size:0.75rem;">50-DMA:</span> <span style="color:{c50}; font-family:JetBrains Mono; font-weight:700;">{pct50:.0f}%</span></span>
-                <span style="flex:1; text-align:center;"><span style="color:#9ca3af; font-size:0.75rem;">Golden Cross:</span> <span style="color:#06b6d4; font-family:JetBrains Mono;">{gc:.0f}%</span></span>
+                        border-bottom:1px solid rgba(15,23,42,0.06); font-size:0.85rem;">
+                <span style="color:#1e293b; font-weight:600; flex:2;">{b['sector']} <span style="color:#94a3b8; font-size:0.75rem;">({b['etf']} · {b['stocks_analyzed']} stocks)</span></span>
+                <span style="flex:1; text-align:center;"><span style="color:#64748b; font-size:0.75rem;">200-DMA:</span> <span style="color:{c200}; font-family:JetBrains Mono; font-weight:700;">{pct200:.0f}%</span></span>
+                <span style="flex:1; text-align:center;"><span style="color:#64748b; font-size:0.75rem;">50-DMA:</span> <span style="color:{c50}; font-family:JetBrains Mono; font-weight:700;">{pct50:.0f}%</span></span>
+                <span style="flex:1; text-align:center;"><span style="color:#64748b; font-size:0.75rem;">Golden Cross:</span> <span style="color:#0891b2; font-family:JetBrains Mono;">{gc:.0f}%</span></span>
                 <span style="flex:1; text-align:right; color:{c_score}; font-family:JetBrains Mono; font-weight:700;">{score:+d}/100</span>
             </div>
             """, unsafe_allow_html=True)
@@ -2849,8 +2902,8 @@ def display_momentum_tab():
         # Pillar 1 composite score explanation
         st.markdown("""
         <div style="margin-top:1rem; padding:0.8rem; background:rgba(249,115,22,0.06); border:1px solid rgba(249,115,22,0.15); border-radius:8px;">
-            <div style="color:#f97316; font-weight:700; font-size:0.85rem; margin-bottom:0.3rem;">PILLAR 1 METHODOLOGY (Bloque 4)</div>
-            <div style="color:#9ca3af; font-size:0.8rem;">
+            <div style="color:#ea580c; font-weight:700; font-size:0.85rem; margin-bottom:0.3rem;">PILLAR 1 METHODOLOGY (Bloque 4)</div>
+            <div style="color:#64748b; font-size:0.8rem;">
                 Breadth Score: >80% above 200-DMA = +90 | 60-80% = +60 | 40-60% = +20 | 20-40% = -25 | <20% = -75<br>
                 Pillar 1 = (Relative Strength x 60%) + (Breadth x 40%) | Updated hourly from Yahoo Finance
             </div>
@@ -2880,13 +2933,13 @@ def display_analytics_tab():
         fig = px.pie(
             values=sector_counts.values,
             names=sector_counts.index,
-            color_discrete_sequence=['#f97316', '#06b6d4', '#10b981', '#a855f7', '#ec4899',
-                                     '#f59e0b', '#14b8a6', '#6366f1', '#ef4444', '#84cc16', '#9ca3af']
+            color_discrete_sequence=['#ea580c', '#0891b2', '#059669', '#9333ea', '#db2777',
+                                     '#d97706', '#0d9488', '#4f46e5', '#dc2626', '#65a30d', '#64748b']
         )
         fig.update_layout(
-            template='plotly_dark', height=380,
+            template='plotly_white', height=380,
             paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            font=dict(family='JetBrains Mono', color='#1e293b'),
             margin=dict(l=10, r=10, t=10, b=10),
             legend=dict(font=dict(size=10))
         )
@@ -2896,7 +2949,7 @@ def display_analytics_tab():
     with col_bars:
         st.markdown("<h3>QUALITY BY SECTOR</h3>", unsafe_allow_html=True)
         sector_avg = df.groupby('GICS Sector')['Quality_Score'].mean().sort_values(ascending=True)
-        colors = ['#10b981' if v >= 70 else '#06b6d4' if v >= 60 else '#f59e0b' if v >= 50 else '#ef4444' for v in sector_avg.values]
+        colors = ['#059669' if v >= 70 else '#0891b2' if v >= 60 else '#d97706' if v >= 50 else '#dc2626' for v in sector_avg.values]
         fig = go.Figure(go.Bar(
             y=sector_avg.index,
             x=sector_avg.values,
@@ -2907,11 +2960,11 @@ def display_analytics_tab():
             textfont=dict(family='JetBrains Mono', size=11)
         ))
         fig.update_layout(
-            template='plotly_dark', height=380,
+            template='plotly_white', height=380,
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            font=dict(family='JetBrains Mono', color='#1e293b'),
             margin=dict(l=10, r=50, t=10, b=10),
-            xaxis=dict(range=[0, 100], gridcolor='rgba(255,255,255,0.05)'),
+            xaxis=dict(range=[0, 100], gridcolor='rgba(15,23,42,0.07)'),
             showlegend=False
         )
         st.plotly_chart(fig, width='stretch')
@@ -2968,17 +3021,17 @@ def display_analytics_tab():
             fig = go.Figure()
             fig.add_trace(go.Histogram(
                 x=df['Quality_Score'], nbinsx=15,
-                marker=dict(color='#f97316'),
+                marker=dict(color='#ea580c'),
                 name='All'
             ))
-            fig.add_vline(x=df['Quality_Score'].mean(), line_dash="dash", line_color="#06b6d4",
+            fig.add_vline(x=df['Quality_Score'].mean(), line_dash="dash", line_color="#0891b2",
                           annotation_text=f"Avg: {df['Quality_Score'].mean():.1f}")
-            fig.add_vline(x=df['Quality_Score'].median(), line_dash="dot", line_color="#10b981",
+            fig.add_vline(x=df['Quality_Score'].median(), line_dash="dot", line_color="#059669",
                           annotation_text=f"Median: {df['Quality_Score'].median():.1f}")
             fig.update_layout(
-                template='plotly_dark', height=300,
+                template='plotly_white', height=300,
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                font=dict(family='JetBrains Mono', color='#1e293b'),
                 xaxis_title="Quality Score", yaxis_title="Count",
                 margin=dict(l=0, r=0, t=30, b=40),
                 showlegend=False
@@ -3002,11 +3055,11 @@ def display_analytics_tab():
             signal = safe_str(row.get('SIGNAL', ''))
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; padding:0.3rem 0;
-                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem;">
-                <span style="color:#6b7280; width:1.5rem;">{i}.</span>
-                <span style="color:#f97316; font-family:JetBrains Mono; width:4rem;">{ticker}</span>
-                <span style="color:#e5e7eb; flex:1;">{company[:22]}</span>
-                <span style="color:#10b981; font-family:JetBrains Mono; font-weight:600;">{score:.0f}</span>
+                        border-bottom:1px solid rgba(15,23,42,0.06); font-size:0.85rem;">
+                <span style="color:#94a3b8; width:1.5rem;">{i}.</span>
+                <span style="color:#ea580c; font-family:JetBrains Mono; width:4rem;">{ticker}</span>
+                <span style="color:#1e293b; flex:1;">{company[:22]}</span>
+                <span style="color:#059669; font-family:JetBrains Mono; font-weight:600;">{score:.0f}</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -3020,11 +3073,11 @@ def display_analytics_tab():
             signal = safe_str(row.get('SIGNAL', ''))
             st.markdown(f"""
             <div style="display:flex; justify-content:space-between; padding:0.3rem 0;
-                        border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem;">
-                <span style="color:#6b7280; width:1.5rem;">{i}.</span>
-                <span style="color:#f97316; font-family:JetBrains Mono; width:4rem;">{ticker}</span>
-                <span style="color:#e5e7eb; flex:1;">{company[:22]}</span>
-                <span style="color:#ef4444; font-family:JetBrains Mono; font-weight:600;">{score:.0f}</span>
+                        border-bottom:1px solid rgba(15,23,42,0.06); font-size:0.85rem;">
+                <span style="color:#94a3b8; width:1.5rem;">{i}.</span>
+                <span style="color:#ea580c; font-family:JetBrains Mono; width:4rem;">{ticker}</span>
+                <span style="color:#1e293b; flex:1;">{company[:22]}</span>
+                <span style="color:#dc2626; font-family:JetBrains Mono; font-weight:600;">{score:.0f}</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -3049,23 +3102,23 @@ def display_analytics_tab():
             r=avgs_r, theta=labels_r,
             fill='toself',
             fillcolor='rgba(249,115,22,0.15)',
-            line=dict(color='#f97316', width=2.5),
-            marker=dict(size=8, color='#f97316'),
+            line=dict(color='#ea580c', width=2.5),
+            marker=dict(size=8, color='#ea580c'),
             name='Portfolio Avg'
         ))
         fig.update_layout(
             polar=dict(
                 radialaxis=dict(visible=True, range=[0, 100],
-                               gridcolor='rgba(255,255,255,0.08)',
+                               gridcolor='rgba(15,23,42,0.10)',
                                tickvals=[20, 40, 60, 80, 100],
-                               tickfont=dict(size=9, color='#6b7280')),
-                angularaxis=dict(gridcolor='rgba(255,255,255,0.1)',
-                                tickfont=dict(size=11, color='#e5e7eb')),
+                               tickfont=dict(size=9, color='#94a3b8')),
+                angularaxis=dict(gridcolor='rgba(15,23,42,0.10)',
+                                tickfont=dict(size=11, color='#1e293b')),
                 bgcolor='rgba(0,0,0,0)'
             ),
-            template='plotly_dark', height=400,
+            template='plotly_white', height=400,
             paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='JetBrains Mono', color='#e5e7eb'),
+            font=dict(family='JetBrains Mono', color='#1e293b'),
             margin=dict(l=60, r=60, t=40, b=40),
             showlegend=False
         )
@@ -3078,12 +3131,12 @@ def display_analytics_tab():
                 avg = df[p].mean()
                 mn = df[p].min()
                 mx = df[p].max()
-                color = '#10b981' if avg >= 65 else '#06b6d4' if avg >= 50 else '#f59e0b' if avg >= 35 else '#ef4444'
+                color = '#059669' if avg >= 65 else '#0891b2' if avg >= 50 else '#d97706' if avg >= 35 else '#dc2626'
                 st.markdown(f"""
                 <div style="text-align:center;">
-                    <div style="color:#9ca3af; font-size:0.75rem;">{pillar_names.get(p, p)}</div>
+                    <div style="color:#64748b; font-size:0.75rem;">{pillar_names.get(p, p)}</div>
                     <div style="color:{color}; font-family:JetBrains Mono; font-size:1.3rem; font-weight:700;">{avg:.0f}</div>
-                    <div style="color:#6b7280; font-size:0.7rem;">{mn:.0f} — {mx:.0f}</div>
+                    <div style="color:#94a3b8; font-size:0.7rem;">{mn:.0f} — {mx:.0f}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -3238,9 +3291,9 @@ def display_holdings_tab():
                     chg = row['Daily_Change']
                     st.markdown(
                         f'<div style="display:flex;justify-content:space-between;padding:0.3rem 0;'
-                        f'border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.85rem;">'
-                        f'<span style="color:#e5e7eb;font-family:JetBrains Mono;">{ticker}</span>'
-                        f'<span style="color:#10b981;font-weight:600;">+{chg:.2f}%</span></div>',
+                        f'border-bottom:1px solid rgba(15,23,42,0.05);font-size:0.85rem;">'
+                        f'<span style="color:#1e293b;font-family:JetBrains Mono;">{ticker}</span>'
+                        f'<span style="color:#059669;font-weight:600;">+{chg:.2f}%</span></div>',
                         unsafe_allow_html=True
                     )
             with col_bottom:
@@ -3252,9 +3305,9 @@ def display_holdings_tab():
                     chg = row['Daily_Change']
                     st.markdown(
                         f'<div style="display:flex;justify-content:space-between;padding:0.3rem 0;'
-                        f'border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.85rem;">'
-                        f'<span style="color:#e5e7eb;font-family:JetBrains Mono;">{ticker}</span>'
-                        f'<span style="color:#ef4444;font-weight:600;">{chg:.2f}%</span></div>',
+                        f'border-bottom:1px solid rgba(15,23,42,0.05);font-size:0.85rem;">'
+                        f'<span style="color:#1e293b;font-family:JetBrains Mono;">{ticker}</span>'
+                        f'<span style="color:#dc2626;font-weight:600;">{chg:.2f}%</span></div>',
                         unsafe_allow_html=True
                     )
 
@@ -3279,12 +3332,12 @@ def display_ai_tab():
                     values=signal_counts.values,
                     names=signal_counts.index,
                     title="SIGNAL DISTRIBUTION",
-                    color_discrete_sequence=['#10b981', '#06b6d4', '#f97316', '#ef4444', '#9ca3af']
+                    color_discrete_sequence=['#059669', '#0891b2', '#ea580c', '#dc2626', '#64748b']
                 )
                 fig.update_layout(
-                    template='plotly_dark', height=350,
+                    template='plotly_white', height=350,
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(family='JetBrains Mono', color='#e5e7eb')
+                    font=dict(family='JetBrains Mono', color='#1e293b')
                 )
                 st.plotly_chart(fig, width='stretch')
 
@@ -3321,12 +3374,12 @@ def display_ai_tab():
                 x=sector_counts.values, y=sector_counts.index,
                 orientation='h', title="Holdings by Sector",
                 color=sector_counts.values,
-                color_continuous_scale=['#06b6d4', '#f97316']
+                color_continuous_scale=['#0891b2', '#ea580c']
             )
             fig_sector.update_layout(
-                template='plotly_dark', height=350,
+                template='plotly_white', height=350,
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                font=dict(family='JetBrains Mono', color='#1e293b'),
                 showlegend=False, xaxis_title="Count", yaxis_title="",
                 coloraxis_showscale=False
             )
@@ -3429,13 +3482,13 @@ def display_ai_tab():
                         values=signal_counts.values,
                         names=signal_counts.index,
                         title="SIGNAL DISTRIBUTION",
-                        color_discrete_sequence=['#10b981', '#06b6d4', '#f97316', '#ef4444', '#9ca3af']
+                        color_discrete_sequence=['#059669', '#0891b2', '#ea580c', '#dc2626', '#64748b']
                     )
                     fig.update_layout(
-                        template='plotly_dark',
+                        template='plotly_white',
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(family='JetBrains Mono', color='#e5e7eb')
+                        font=dict(family='JetBrains Mono', color='#1e293b')
                     )
                     st.plotly_chart(fig, width='stretch')
 
@@ -3449,10 +3502,10 @@ def display_ai_tab():
                         color_continuous_scale='Oranges'
                     )
                     fig2.update_layout(
-                        template='plotly_dark',
+                        template='plotly_white',
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(family='JetBrains Mono', color='#e5e7eb'),
+                        font=dict(family='JetBrains Mono', color='#1e293b'),
                         showlegend=False,
                         xaxis_title="",
                         yaxis_title="Count"
@@ -3484,14 +3537,14 @@ def display_ai_tab():
 with st.sidebar:
     st.markdown("""
     <div style="padding: 1rem 0; text-align: center;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                border-bottom: 1px solid rgba(15,23,42,0.07);">
         <div style="font-family: 'JetBrains Mono'; font-size: 1.2rem;
-                    font-weight: 700; color: #f97316;">
+                    font-weight: 700; color: #ea580c;">
             MARANGO
         </div>
-        <div style="font-size: 0.75rem; color: #9ca3af;
+        <div style="font-size: 0.75rem; color: #64748b;
                     text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5rem;">
-            Terminal v4.1
+            Terminal v5.0
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3511,14 +3564,14 @@ with st.sidebar:
     st.divider()
 
     st.markdown(f"""
-    <div style="font-size: 0.8rem; color: #9ca3af; line-height: 1.6;">
+    <div style="font-size: 0.8rem; color: #64748b; line-height: 1.6;">
         <strong>Quality x Regime</strong><br>
-        Investment System v4.1<br><br>
-        <strong style="color:#f97316;">Data Sources:</strong><br>
+        Investment System v5.0<br><br>
+        <strong style="color:#ea580c;">Data Sources:</strong><br>
         Yahoo Finance (live)<br>
         Excel (scoring)<br>
         Claude AI (analysis)<br><br>
-        <strong style="color:#f97316;">Last Refresh:</strong><br>
+        <strong style="color:#ea580c;">Last Refresh:</strong><br>
         {datetime.now().strftime('%H:%M:%S %Z')}
     </div>
     """, unsafe_allow_html=True)
@@ -3540,34 +3593,34 @@ if df.empty:
 regime_score = regime.get('combined', 0)
 regime_status_text = regime.get('status', 'Unknown')
 if regime_score >= 70:
-    regime_dot = '#10b981'
+    regime_dot = '#059669'
     regime_label = 'RISK-ON'
 elif regime_score >= 55:
-    regime_dot = '#06b6d4'
+    regime_dot = '#0891b2'
     regime_label = 'MODERATE'
 elif regime_score >= 45:
-    regime_dot = '#f59e0b'
+    regime_dot = '#d97706'
     regime_label = 'CAUTION'
 else:
-    regime_dot = '#ef4444'
+    regime_dot = '#dc2626'
     regime_label = 'RISK-OFF'
 
 header_time = datetime.now().strftime('%H:%M')
 header_date = datetime.now().strftime('%d %b %Y').upper()
 
 st.markdown(f"""
-<div style="background:linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%);
-            border-top:3px solid #f97316; border-bottom:1px solid rgba(249,115,22,0.2);
+<div style="background:linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
+            border-top:3px solid #ea580c; border-bottom:1px solid rgba(249,115,22,0.2);
             padding:0.6rem 1.5rem; font-family:'JetBrains Mono',monospace;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.3rem;">
         <div style="display:flex; align-items:center; gap:1rem;">
-            <span style="font-size:1.1rem; font-weight:700; color:#f97316; letter-spacing:0.12em;">MARANGO</span>
-            <span style="color:#6b7280; font-size:0.7rem; border-left:1px solid #333; padding-left:0.8rem;">TERMINAL v4.1</span>
-            <span style="color:#6b7280; font-size:0.7rem; border-left:1px solid #333; padding-left:0.8rem;">Quality × Regime × Momentum</span>
+            <span style="font-size:1.1rem; font-weight:700; color:#ea580c; letter-spacing:0.12em;">MARANGO</span>
+            <span style="color:#94a3b8; font-size:0.7rem; border-left:1px solid #e2e8f0; padding-left:0.8rem;">TERMINAL v5.0</span>
+            <span style="color:#94a3b8; font-size:0.7rem; border-left:1px solid #e2e8f0; padding-left:0.8rem;">Quality × Regime × Momentum</span>
         </div>
         <div style="display:flex; align-items:center; gap:1.2rem; font-size:0.75rem;">
-            <span style="color:#9ca3af;">{header_date}</span>
-            <span style="color:#f97316; font-weight:600;">{header_time}</span>
+            <span style="color:#64748b;">{header_date}</span>
+            <span style="color:#ea580c; font-weight:600;">{header_time}</span>
             <span style="display:inline-flex; align-items:center; gap:0.3rem;
                          background:rgba({','.join([str(int(regime_dot[i:i+2],16)) for i in (1,3,5)])},0.1);
                          border:1px solid {regime_dot}40; border-radius:4px; padding:0.15rem 0.5rem;">
@@ -3575,8 +3628,8 @@ st.markdown(f"""
                 <span style="color:{regime_dot}; font-weight:600;">{regime_label} {regime_score:.0f}</span>
             </span>
             <span style="display:inline-flex; align-items:center; gap:0.3rem;">
-                <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; animation:pulse 2s infinite;"></span>
-                <span style="color:#10b981; font-weight:600;">LIVE</span>
+                <span style="width:6px; height:6px; border-radius:50%; background:#059669; display:inline-block; animation:pulse 2s infinite;"></span>
+                <span style="color:#059669; font-weight:600;">LIVE</span>
             </span>
         </div>
     </div>
@@ -3600,20 +3653,20 @@ def render_ticker_marquee():
                 continue
             chg = data.get('change_pct', 0)
             net = data.get('change', 0)
-            color = '#10b981' if chg >= 0 else '#ef4444'
+            color = '#059669' if chg >= 0 else '#dc2626'
             arrow = '&#9650;' if chg >= 0 else '&#9660;'
             ticker_items.append(
                 f'<span style="display:inline-flex; align-items:center; margin-right:1.8rem; gap:0.4rem;">'
-                f'<span style="color:#f97316; font-weight:600; font-size:0.72rem;">{name}</span>'
-                f'<span style="color:#e5e7eb; font-weight:700; font-size:0.78rem;">{data["value"]:,.2f}</span>'
+                f'<span style="color:#ea580c; font-weight:600; font-size:0.72rem;">{name}</span>'
+                f'<span style="color:#1e293b; font-weight:700; font-size:0.78rem;">{data["value"]:,.2f}</span>'
                 f'<span style="color:{color}; font-size:0.72rem;">{arrow}{net:+.2f}</span>'
                 f'<span style="color:{color}; font-weight:600; font-size:0.72rem;">({chg:+.2f}%)</span>'
-                f'<span style="color:rgba(255,255,255,0.08); margin:0 0.2rem;">|</span>'
+                f'<span style="color:rgba(15,23,42,0.10); margin:0 0.2rem;">|</span>'
                 f'</span>'
             )
         marquee_content = ''.join(ticker_items)
         st.markdown(f"""
-        <div style="overflow:hidden; background:linear-gradient(90deg, #08080d, #0c0c14, #08080d);
+        <div style="overflow:hidden; background:linear-gradient(90deg, #f7f8fa, #f7f8fa, #f7f8fa);
                     border-bottom:1px solid rgba(249,115,22,0.15);
                     padding:0.45rem 0; font-family:'JetBrains Mono',monospace;
                     white-space:nowrap;">
@@ -3746,7 +3799,7 @@ with tab8:
 # Footer
 st.divider()
 st.markdown("""
-<div style="text-align: center; color: #9ca3af; font-size: 0.75rem;
+<div style="text-align: center; color: #64748b; font-size: 0.75rem;
             text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 0;">
     Marango Terminal v5.0 | Quality × Regime × Momentum | Marango Fund
 </div>

@@ -236,7 +236,7 @@ def _band_chart(df: pd.DataFrame, metric: str, current_value, currency: str):
         fig.add_annotation(text=f"Insufficient {metric} history",
                            xref="paper", yref="paper",
                            x=0.5, y=0.5, showarrow=False,
-                           font=dict(color="#9ca3af"))
+                           font=dict(color="#64748b"))
         fig.update_layout(height=240, paper_bgcolor="rgba(0,0,0,0)",
                           plot_bgcolor="rgba(0,0,0,0)")
         return fig
@@ -247,17 +247,17 @@ def _band_chart(df: pd.DataFrame, metric: str, current_value, currency: str):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=valid_dates, y=valid_vals, mode="lines+markers",
-        line=dict(color="#f97316", width=2),
-        marker=dict(size=6, color="#f97316"),
+        line=dict(color="#ea580c", width=2),
+        marker=dict(size=6, color="#ea580c"),
         name=metric, hovertemplate="%{x}<br>%{y:.1f}x<extra></extra>",
     ))
 
     # Median & quartile bands
     s = pd.Series(valid_vals)
     p25, p50, p75 = s.quantile([0.25, 0.5, 0.75])
-    for lvl, color, label in [(p50, "#06b6d4", "Median"),
-                               (p25, "#10b981", "25th"),
-                               (p75, "#ef4444", "75th")]:
+    for lvl, color, label in [(p50, "#0891b2", "Median"),
+                               (p25, "#059669", "25th"),
+                               (p75, "#dc2626", "75th")]:
         fig.add_hline(y=lvl, line_dash="dot",
                       line_color=color, opacity=0.5,
                       annotation_text=f"{label} {lvl:.1f}x",
@@ -267,23 +267,23 @@ def _band_chart(df: pd.DataFrame, metric: str, current_value, currency: str):
 
     if current_value is not None and current_value == current_value:
         fig.add_hline(y=current_value, line_dash="solid",
-                      line_color="#fbbf24", line_width=2,
+                      line_color="#f59e0b", line_width=2,
                       annotation_text=f"NOW {current_value:.1f}x",
                       annotation_position="left",
-                      annotation_font_color="#fbbf24",
+                      annotation_font_color="#f59e0b",
                       annotation_font_size=11)
 
     fig.update_layout(
-        title=dict(text=metric, font=dict(size=12, color="#f97316",
+        title=dict(text=metric, font=dict(size=12, color="#ea580c",
                                            family="JetBrains Mono, monospace")),
         height=240,
         margin=dict(l=10, r=80, t=30, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="JetBrains Mono, monospace", color="#e5e7eb", size=10),
-        xaxis=dict(showgrid=False, color="#9ca3af"),
-        yaxis=dict(gridcolor="rgba(255,255,255,0.05)", zeroline=False,
-                   color="#9ca3af"),
+        font=dict(family="JetBrains Mono, monospace", color="#1e293b", size=10),
+        xaxis=dict(showgrid=False, color="#64748b"),
+        yaxis=dict(gridcolor="rgba(15,23,42,0.07)", zeroline=False,
+                   color="#64748b"),
         showlegend=False,
     )
     return fig
@@ -293,11 +293,11 @@ def display_multiples_tab():
     """Historical multiples band chart."""
     st.markdown("""
     <div style="margin: 1rem 0 1.5rem 0;">
-        <div style="font-family: 'JetBrains Mono', monospace; color: #f97316;
+        <div style="font-family: 'JetBrains Mono', monospace; color: #ea580c;
                     font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em;">
             HISTORICAL MULTIPLES
         </div>
-        <div style="color: #9ca3af; font-size: 0.85rem; letter-spacing: 0.05em;
+        <div style="color: #64748b; font-size: 0.85rem; letter-spacing: 0.05em;
                     text-transform: uppercase;">
             10-year valuation history · Percentile vs own history · Powered by EODHD
         </div>
@@ -332,7 +332,7 @@ def display_multiples_tab():
     cur = data["current"]
     st.markdown(f"""
     <div style="margin: 0.5rem 0 1rem 0;">
-        <div style="font-family: 'JetBrains Mono', monospace; color: #e5e7eb;
+        <div style="font-family: 'JetBrains Mono', monospace; color: #1e293b;
                     font-size: 1.1rem; font-weight: 600;">{data['name']}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -349,30 +349,30 @@ def display_multiples_tab():
                 cur_v = float(non_null.iloc[-1])
         pct = percentile_of(cur_v, df[m].tolist())
         with cols[i]:
-            badge_color = "#9ca3af"
+            badge_color = "#64748b"
             badge_label = "—"
             if pct is not None:
                 if pct >= 80:
-                    badge_color, badge_label = "#ef4444", "EXPENSIVE"
+                    badge_color, badge_label = "#dc2626", "EXPENSIVE"
                 elif pct >= 60:
-                    badge_color, badge_label = "#f97316", "ABOVE AVG"
+                    badge_color, badge_label = "#ea580c", "ABOVE AVG"
                 elif pct >= 40:
-                    badge_color, badge_label = "#fbbf24", "AVERAGE"
+                    badge_color, badge_label = "#f59e0b", "AVERAGE"
                 elif pct >= 20:
-                    badge_color, badge_label = "#10b981", "BELOW AVG"
+                    badge_color, badge_label = "#059669", "BELOW AVG"
                 else:
-                    badge_color, badge_label = "#3b82f6", "CHEAP"
+                    badge_color, badge_label = "#2563eb", "CHEAP"
             v_str = f"{cur_v:.1f}x" if cur_v is not None else "N/A"
             pct_str = f"{pct:.0f}th pctile" if pct is not None else ""
             st.markdown(f"""
-            <div style="background: rgba(15,15,25,0.8); padding: 1rem;
+            <div style="background: rgba(255,255,255,0.92); padding: 1rem;
                         border-radius: 0.75rem; border: 1px solid {badge_color}55;
                         text-align: center;">
-                <div style="color: #9ca3af; font-size: 0.7rem; letter-spacing: 0.1em;
+                <div style="color: #64748b; font-size: 0.7rem; letter-spacing: 0.1em;
                             text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">
                     {m}
                 </div>
-                <div style="color: #e5e7eb; font-family: 'JetBrains Mono', monospace;
+                <div style="color: #1e293b; font-family: 'JetBrains Mono', monospace;
                             font-size: 1.6rem; font-weight: 700; margin: 0.3rem 0;">
                     {v_str}
                 </div>
@@ -380,7 +380,7 @@ def display_multiples_tab():
                             font-size: 0.7rem; letter-spacing: 0.1em; font-weight: 600;">
                     {badge_label}
                 </div>
-                <div style="color: #9ca3af; font-family: 'JetBrains Mono', monospace;
+                <div style="color: #64748b; font-family: 'JetBrains Mono', monospace;
                             font-size: 0.65rem;">
                     {pct_str}
                 </div>

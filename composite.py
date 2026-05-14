@@ -135,30 +135,30 @@ def build_signals_table() -> pd.DataFrame:
 
 def _score_color(v, lo=40, hi=70):
     if v is None:
-        return "#6b7280"
+        return "#94a3b8"
     if v >= hi:
-        return "#10b981"
+        return "#059669"
     if v >= (lo + hi) / 2:
-        return "#06b6d4"
+        return "#0891b2"
     if v >= lo:
-        return "#f59e0b"
-    return "#ef4444"
+        return "#d97706"
+    return "#dc2626"
 
 
 def _sent_color(v):
     if v is None:
-        return "#6b7280"
+        return "#94a3b8"
     if v >= 20:
-        return "#10b981"
+        return "#059669"
     if v > -20:
-        return "#9ca3af"
-    return "#ef4444"
+        return "#64748b"
+    return "#dc2626"
 
 
 def _cell(text, color, weight="400", align="right"):
     return ('<td style="padding:0.45rem 0.7rem;color:' + color +
             ';font-family:JetBrains Mono,monospace;font-size:0.8rem;'
-            'border-bottom:1px solid rgba(255,255,255,0.05);text-align:' + align +
+            'border-bottom:1px solid rgba(15,23,42,0.07);text-align:' + align +
             ';font-weight:' + weight + ';white-space:nowrap;">' + text + '</td>')
 
 
@@ -166,8 +166,8 @@ def _universe_table_html(df: pd.DataFrame) -> str:
     headers = ["#", "Ticker", "Company", "Sector", "Signal",
                "Composite", "Quality", "Moat", "Valuation", "Sentiment"]
     head = "".join(
-        '<th style="padding:0.6rem 0.7rem;color:#9ca3af;'
-        'background:rgba(255,255,255,0.02);font-family:JetBrains Mono,monospace;'
+        '<th style="padding:0.6rem 0.7rem;color:#64748b;'
+        'background:rgba(15,23,42,0.04);font-family:JetBrains Mono,monospace;'
         'font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;'
         'text-align:' + ("left" if h in ("Ticker", "Company", "Sector", "Signal") else "right") +
         ';border-bottom:2px solid rgba(249,115,22,0.3);">' + h + '</th>'
@@ -175,14 +175,14 @@ def _universe_table_html(df: pd.DataFrame) -> str:
 
     body = []
     for i, (_, r) in enumerate(df.iterrows(), 1):
-        mk = ' <span style="color:#f97316;">●</span>' if r.get("Marango_Holding") else ""
+        mk = ' <span style="color:#ea580c;">●</span>' if r.get("Marango_Holding") else ""
         comp = r.get("Composite")
         cells = [
-            _cell(str(i), "#6b7280", align="right"),
-            _cell(str(r.get("Ticker", "")) + mk, "#e5e7eb", "700", "left"),
-            _cell(str(r.get("Company", ""))[:24], "#9ca3af", "400", "left"),
-            _cell(str(r.get("GICS Sector", ""))[:20], "#6b7280", "400", "left"),
-            _cell(str(r.get("Signal", "")), "#e5e7eb", "600", "left"),
+            _cell(str(i), "#94a3b8", align="right"),
+            _cell(str(r.get("Ticker", "")) + mk, "#1e293b", "700", "left"),
+            _cell(str(r.get("Company", ""))[:24], "#64748b", "400", "left"),
+            _cell(str(r.get("GICS Sector", ""))[:20], "#94a3b8", "400", "left"),
+            _cell(str(r.get("Signal", "")), "#1e293b", "600", "left"),
             _cell("{:.1f}".format(comp) if comp is not None else "—",
                   _score_color(comp, 45, 65), "700"),
             _cell("{:.0f}".format(r["Quality"]) if r.get("Quality") is not None else "—",
@@ -197,8 +197,8 @@ def _universe_table_html(df: pd.DataFrame) -> str:
         body.append("<tr>" + "".join(cells) + "</tr>")
 
     return (
-        '<div style="background:rgba(15,15,25,0.8);border-radius:0.75rem;'
-        'border:1px solid rgba(255,255,255,0.05);overflow-x:auto;max-height:560px;'
+        '<div style="background:rgba(255,255,255,0.92);border-radius:0.75rem;'
+        'border:1px solid rgba(15,23,42,0.07);overflow-x:auto;max-height:560px;'
         'overflow-y:auto;backdrop-filter:blur(12px);">'
         '<table style="width:100%;border-collapse:collapse;">'
         '<thead style="position:sticky;top:0;">' + "<tr>" + head + "</tr></thead>"
@@ -211,12 +211,12 @@ def _bar(label, value, maxv, color, detail=""):
     return (
         '<div style="margin-bottom:0.5rem;">'
         '<div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.15rem;">'
-        '<span style="color:#e5e7eb;">' + label + '</span>'
+        '<span style="color:#1e293b;">' + label + '</span>'
         '<span style="color:' + color + ';font-weight:700;font-family:JetBrains Mono,monospace;">'
         + "{:.1f}".format(value) + '/' + str(maxv) + '</span></div>'
-        '<div style="background:rgba(255,255,255,0.06);border-radius:3px;height:10px;overflow:hidden;">'
+        '<div style="background:rgba(15,23,42,0.08);border-radius:3px;height:10px;overflow:hidden;">'
         '<div style="background:' + color + ';width:' + str(pct) + '%;height:100%;"></div></div>'
-        + ('<div style="color:#6b7280;font-size:0.68rem;margin-top:0.1rem;">' + detail + '</div>' if detail else "")
+        + ('<div style="color:#94a3b8;font-size:0.68rem;margin-top:0.1rem;">' + detail + '</div>' if detail else "")
         + '</div>'
     )
 
@@ -228,9 +228,9 @@ def _bar(label, value, maxv, color, detail=""):
 def display_signals_tab():
     st.markdown(
         '<div style="margin:1rem 0 1.5rem 0;">'
-        '<div style="font-family:JetBrains Mono,monospace;color:#f97316;'
+        '<div style="font-family:JetBrains Mono,monospace;color:#ea580c;'
         'font-size:1.5rem;font-weight:700;letter-spacing:0.05em;">COMPOSITE SIGNALS</div>'
-        '<div style="color:#9ca3af;font-size:0.85rem;letter-spacing:0.05em;'
+        '<div style="color:#64748b;font-size:0.85rem;letter-spacing:0.05em;'
         'text-transform:uppercase;">Quality × Moat × Valuation × Sentiment — ranked universe · Powered by EODHD</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -314,12 +314,12 @@ def display_signals_tab():
     sig_color = _score_color(comp, 45, 65)
 
     st.markdown(
-        '<div style="background:rgba(15,15,25,0.8);border:1px solid ' + sig_color +
+        '<div style="background:rgba(255,255,255,0.92);border:1px solid ' + sig_color +
         '55;border-radius:0.75rem;padding:1.2rem 1.5rem;margin:0.5rem 0 1rem 0;'
         'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">'
-        '<div><div style="font-family:JetBrains Mono,monospace;color:#e5e7eb;'
+        '<div><div style="font-family:JetBrains Mono,monospace;color:#1e293b;'
         'font-size:1.2rem;font-weight:700;">' + sel_ticker + ' · ' + str(company) + '</div>'
-        '<div style="color:#9ca3af;font-size:0.8rem;">' + str(sel_row.get("GICS Sector", "")) + '</div></div>'
+        '<div style="color:#64748b;font-size:0.8rem;">' + str(sel_row.get("GICS Sector", "")) + '</div></div>'
         '<div style="text-align:right;"><div style="font-family:JetBrains Mono,monospace;'
         'color:' + sig_color + ';font-size:2.2rem;font-weight:700;">' + "{:.1f}".format(comp) + '</div>'
         '<div style="color:' + sig_color + ';font-size:0.9rem;font-weight:600;">' + sig + '</div></div>'
@@ -339,9 +339,9 @@ def display_signals_tab():
         disp = ("{:+.0f}".format(val) if (is_sent and val is not None)
                 else ("{:.0f}".format(val) if val is not None else "—"))
         col.markdown(
-            '<div style="background:rgba(15,15,25,0.8);padding:0.9rem;border-radius:0.6rem;'
+            '<div style="background:rgba(255,255,255,0.92);padding:0.9rem;border-radius:0.6rem;'
             'border:1px solid ' + color + '44;text-align:center;">'
-            '<div style="color:#9ca3af;font-size:0.65rem;letter-spacing:0.1em;'
+            '<div style="color:#64748b;font-size:0.65rem;letter-spacing:0.1em;'
             'font-family:JetBrains Mono,monospace;">' + lbl + '</div>'
             '<div style="color:' + color + ';font-family:JetBrains Mono,monospace;'
             'font-size:1.8rem;font-weight:700;">' + disp + '</div></div>',
@@ -356,7 +356,7 @@ def display_signals_tab():
         st.markdown("#### Valuation — decomposed")
         for label, (sc, raw) in val_res["components"].items():
             if sc is None:
-                st.markdown('<div style="color:#6b7280;font-size:0.78rem;margin-bottom:0.5rem;">'
+                st.markdown('<div style="color:#94a3b8;font-size:0.78rem;margin-bottom:0.5rem;">'
                             + label + ' — n/a</div>', unsafe_allow_html=True)
                 continue
             detail = ""
@@ -383,13 +383,13 @@ def display_signals_tab():
         for col, (label, (sc, w, detail, n)) in zip(scols, sent_res["components"].items()):
             color = _sent_color(sc)
             col.markdown(
-                '<div style="background:rgba(15,15,25,0.8);padding:0.8rem;border-radius:0.6rem;'
-                'border:1px solid rgba(255,255,255,0.06);">'
-                '<div style="color:#9ca3af;font-size:0.7rem;letter-spacing:0.05em;">'
-                + label + ' <span style="color:#6b7280;">(w ' + "{:.0%}".format(w) + ')</span></div>'
+                '<div style="background:rgba(255,255,255,0.92);padding:0.8rem;border-radius:0.6rem;'
+                'border:1px solid rgba(15,23,42,0.08);">'
+                '<div style="color:#64748b;font-size:0.7rem;letter-spacing:0.05em;">'
+                + label + ' <span style="color:#94a3b8;">(w ' + "{:.0%}".format(w) + ')</span></div>'
                 '<div style="color:' + color + ';font-family:JetBrains Mono,monospace;'
                 'font-size:1.5rem;font-weight:700;">' + "{:+.0f}".format(sc) + '</div>'
-                '<div style="color:#6b7280;font-size:0.68rem;">' + str(detail) + '</div></div>',
+                '<div style="color:#94a3b8;font-size:0.68rem;">' + str(detail) + '</div></div>',
                 unsafe_allow_html=True,
             )
     else:

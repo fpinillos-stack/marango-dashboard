@@ -209,13 +209,13 @@ def altman_z_score(fund: dict) -> dict:
 
     if z > 2.99:
         zone = "SAFE"
-        color = "#10b981"
+        color = "#059669"
     elif z >= 1.81:
         zone = "GREY"
-        color = "#f97316"
+        color = "#ea580c"
     else:
         zone = "DISTRESS"
-        color = "#ef4444"
+        color = "#dc2626"
 
     return {
         "ok": True,
@@ -317,13 +317,13 @@ def beneish_m_score(fund: dict) -> dict:
 
     if m > -1.78:
         zone = "LIKELY MANIPULATOR"
-        color = "#ef4444"
+        color = "#dc2626"
     elif m > -2.22:
         zone = "GREY"
-        color = "#f97316"
+        color = "#ea580c"
     else:
         zone = "UNLIKELY"
-        color = "#10b981"
+        color = "#059669"
 
     return {
         "ok": True,
@@ -343,12 +343,12 @@ def beneish_m_score(fund: dict) -> dict:
 
 def _piotroski_color(score):
     if score is None:
-        return "#9ca3af"
+        return "#64748b"
     if score >= 7:
-        return "#10b981"
+        return "#059669"
     if score >= 4:
-        return "#f97316"
-    return "#ef4444"
+        return "#ea580c"
+    return "#dc2626"
 
 
 def _piotroski_label(score):
@@ -365,11 +365,11 @@ def display_quality_tab():
     """Quality scores tab — Piotroski, Altman, Beneish."""
     st.markdown("""
     <div style="margin: 1rem 0 1.5rem 0;">
-        <div style="font-family: 'JetBrains Mono', monospace; color: #f97316;
+        <div style="font-family: 'JetBrains Mono', monospace; color: #ea580c;
                     font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em;">
             QUALITY SCORES
         </div>
-        <div style="color: #9ca3af; font-size: 0.85rem; letter-spacing: 0.05em;
+        <div style="color: #64748b; font-size: 0.85rem; letter-spacing: 0.05em;
                     text-transform: uppercase;">
             Piotroski F · Altman Z · Beneish M · Powered by EODHD
         </div>
@@ -413,18 +413,18 @@ def display_quality_tab():
             col = _piotroski_color(sc)
             lbl = _piotroski_label(sc)
         else:
-            sc, mx, col, lbl = "—", 9, "#9ca3af", "ERROR"
+            sc, mx, col, lbl = "—", 9, "#64748b", "ERROR"
         st.markdown(f"""
-        <div style="background: rgba(15,15,25,0.8); padding: 1.2rem;
+        <div style="background: rgba(255,255,255,0.92); padding: 1.2rem;
                     border-radius: 0.75rem; border: 1px solid {col}55;
                     text-align: center;">
-            <div style="color: #9ca3af; font-size: 0.7rem; letter-spacing: 0.1em;
+            <div style="color: #64748b; font-size: 0.7rem; letter-spacing: 0.1em;
                         text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">
                 PIOTROSKI F
             </div>
             <div style="color: {col}; font-family: 'JetBrains Mono', monospace;
                         font-size: 2.5rem; font-weight: 700;">
-                {sc}<span style="font-size:1.2rem; color: #9ca3af;">/{mx}</span>
+                {sc}<span style="font-size:1.2rem; color: #64748b;">/{mx}</span>
             </div>
             <div style="color: {col}; font-family: 'JetBrains Mono', monospace;
                         font-size: 0.75rem; letter-spacing: 0.15em; font-weight: 600;">
@@ -438,12 +438,12 @@ def display_quality_tab():
             z = altman["z"]; zone = altman["zone"]; col = altman["color"]
             z_str = f"{z:.2f}"
         else:
-            z_str, zone, col = "—", "ERROR", "#9ca3af"
+            z_str, zone, col = "—", "ERROR", "#64748b"
         st.markdown(f"""
-        <div style="background: rgba(15,15,25,0.8); padding: 1.2rem;
+        <div style="background: rgba(255,255,255,0.92); padding: 1.2rem;
                     border-radius: 0.75rem; border: 1px solid {col}55;
                     text-align: center;">
-            <div style="color: #9ca3af; font-size: 0.7rem; letter-spacing: 0.1em;
+            <div style="color: #64748b; font-size: 0.7rem; letter-spacing: 0.1em;
                         text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">
                 ALTMAN Z
             </div>
@@ -463,12 +463,12 @@ def display_quality_tab():
             m = beneish["m"]; zone = beneish["zone"]; col = beneish["color"]
             m_str = f"{m:.2f}"
         else:
-            m_str, zone, col = "—", "ERROR", "#9ca3af"
+            m_str, zone, col = "—", "ERROR", "#64748b"
         st.markdown(f"""
-        <div style="background: rgba(15,15,25,0.8); padding: 1.2rem;
+        <div style="background: rgba(255,255,255,0.92); padding: 1.2rem;
                     border-radius: 0.75rem; border: 1px solid {col}55;
                     text-align: center;">
-            <div style="color: #9ca3af; font-size: 0.7rem; letter-spacing: 0.1em;
+            <div style="color: #64748b; font-size: 0.7rem; letter-spacing: 0.1em;
                         text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">
                 BENEISH M
             </div>
