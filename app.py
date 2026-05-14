@@ -3155,7 +3155,7 @@ def display_analytics_tab():
 
 def display_holdings_tab():
     """Holdings with sparklines, insider trades, analyst consensus, and fundamental filters"""
-    st.markdown("<h2>PORTFOLIO HOLDINGS</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>HOLDINGS</h2>", unsafe_allow_html=True)
 
     df = load_bloque1()
     live_prices = {}
@@ -3190,21 +3190,11 @@ def display_holdings_tab():
     with filter_row1_c4:
         st.write("")
         st.write("")
-        marango_only = st.checkbox("Marango only", value=False, key="holdings_marango",
+        marango_only = st.checkbox("Marango only", value=True, key="holdings_marango",
                                    help="Show only actual Marango Equity Fund positions")
 
-    # Fundamental screener filters (Dexter-inspired — uses Excel data for speed)
-    with st.expander("Fundamental Screener", expanded=False):
-        fund_c1, fund_c2, fund_c3, fund_c4 = st.columns(4)
-        with fund_c1:
-            min_quality = st.slider("Min Quality Score", 0, 100, 0, key="hf_min_quality")
-        with fund_c2:
-            min_p1 = st.slider("Min Profitability (P1)", 0, 100, 0, key="hf_min_p1")
-        with fund_c3:
-            min_p3 = st.slider("Min Financial Health (P3)", 0, 100, 0, key="hf_min_p3")
-        with fund_c4:
-            min_p5 = st.slider("Min Valuation (P5)", 0, 100, 0, key="hf_min_p5")
-        st.caption("Tip: For detailed Analyst Consensus, Insider Trades & Earnings data, select a company in the SCORES tab.")
+    # Fundamental screener removed in v5.0 — full scoring lives in SIGNALS / RESEARCH
+    min_quality = min_p1 = min_p3 = min_p5 = 0
 
     # Apply filters
     filtered_df = df.copy()
@@ -3229,7 +3219,7 @@ def display_holdings_tab():
         filtered_df = filtered_df[filtered_df['P5'].fillna(0) >= min_p5]
 
     # ── COLUMN SETUP ─────────────────────────────────────────────
-    holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL', 'P1', 'P2', 'P3', 'P4', 'P5']
+    holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL']
     col_config = {
         "Company": st.column_config.TextColumn("Company", width="medium"),
         "Marango_Holding": st.column_config.CheckboxColumn("Marango", width="small"),
@@ -3708,62 +3698,33 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "MARKETS",
-    "SCORES",
-    "REGIME",
-    "MOMENTUM",
-    "BRIDGE",
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "SIGNALS",
     "HOLDINGS",
     "RESEARCH",
-    "SIGNALS"
+    "MACRO",
+    "MOMENTUM",
+    "BRIDGE"
 ])
 
 with tab1:
     try:
-        display_markets_tab()
+        display_signals_tab()
     except Exception as e:
-        st.error(f"Markets tab error: {str(e)}")
+        st.error(f"Signals tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 with tab2:
-    try:
-        display_scores_tab()
-    except Exception as e:
-        st.error(f"Scores tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab3:
-    try:
-        display_regime_tab()
-    except Exception as e:
-        st.error(f"Regime tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab4:
-    try:
-        display_momentum_tab()
-    except Exception as e:
-        st.error(f"Momentum tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab5:
-    try:
-        display_bridge_tab()
-    except Exception as e:
-        st.error(f"Bridge tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab6:
     try:
         display_holdings_tab()
     except Exception as e:
         st.error(f"Holdings tab error: {str(e)}")
         st.code(traceback.format_exc())
 
-with tab7:
+with tab3:
     # RESEARCH — single-stock deep dive (sub-tabs)
-    sub1, sub2, sub3, sub4, sub5 = st.tabs([
+    sub1, sub2, sub3, sub4, sub5, sub6 = st.tabs([
+        "Quality Radar",
         "Valuation (Reverse DCF)",
         "Return Attribution",
         "Historical Multiples",
@@ -3772,40 +3733,69 @@ with tab7:
     ])
     with sub1:
         try:
+            display_scores_tab()
+        except Exception as e:
+            st.error(f"Scores error: {str(e)}")
+            st.code(traceback.format_exc())
+    with sub2:
+        try:
             display_valuation_tab()
         except Exception as e:
             st.error(f"Valuation error: {str(e)}")
             st.code(traceback.format_exc())
-    with sub2:
+    with sub3:
         try:
             display_attribution_tab()
         except Exception as e:
             st.error(f"Attribution error: {str(e)}")
             st.code(traceback.format_exc())
-    with sub3:
+    with sub4:
         try:
             display_multiples_tab()
         except Exception as e:
             st.error(f"Multiples error: {str(e)}")
             st.code(traceback.format_exc())
-    with sub4:
+    with sub5:
         try:
             display_quality_tab()
         except Exception as e:
             st.error(f"Quality error: {str(e)}")
             st.code(traceback.format_exc())
-    with sub5:
+    with sub6:
         try:
             display_peers_tab()
         except Exception as e:
             st.error(f"Peers error: {str(e)}")
             st.code(traceback.format_exc())
 
-with tab8:
+with tab4:
+    # MACRO — market overview + regime (sub-tabs)
+    msub1, msub2 = st.tabs(["Markets", "Regime"])
+    with msub1:
+        try:
+            display_markets_tab()
+        except Exception as e:
+            st.error(f"Markets error: {str(e)}")
+            st.code(traceback.format_exc())
+    with msub2:
+        try:
+            display_regime_tab()
+        except Exception as e:
+            st.error(f"Regime error: {str(e)}")
+            st.code(traceback.format_exc())
+
+with tab5:
     try:
-        display_signals_tab()
+        display_momentum_tab()
     except Exception as e:
-        st.error(f"Signals tab error: {str(e)}")
+        st.error(f"Momentum tab error: {str(e)}")
+        st.code(traceback.format_exc())
+
+with tab6:
+    try:
+        display_bridge_tab()
+    except Exception as e:
+        st.error(f"Bridge tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
