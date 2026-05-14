@@ -40,6 +40,8 @@ from multiples import display_multiples_tab
 from quality import display_quality_tab
 # Peer comparison module
 from peers import display_peers_tab
+# Composite Signals module (Quality x Moat x Valuation x Sentiment)
+from composite import display_signals_tab
 
 # Anthropic API
 try:
@@ -263,17 +265,25 @@ def safe_str(val, default=''):
 
 @st.cache_data(ttl=900)
 def load_bloque1():
-    """Load Bloque 1 - Financial Scoring"""
+    """Portfolio scoring — EODHD-driven via portfolio_engine, Excel fallback."""
+    # Primary: live EODHD-driven scoring engine
+    try:
+        from portfolio_engine import build_portfolio
+        df = build_portfolio()
+        if df is not None and not df.empty and df['Quality_Score'].notna().any():
+            return df
+    except Exception as e:
+        st.warning(f"EODHD scoring unavailable — using Excel fallback. ({str(e)[:120]})")
+
+    # Fallback: original Excel
     try:
         df = pd.read_excel(
             'Bloque_1_Financial_Scoring_Generic_V4.xlsx',
             sheet_name='Generic Scoring',
             header=2
         )
-
         df = df[df['Company'].notna()]
         df = df[df['SA SCORE'].notna()]
-
         df = df.rename(columns={
             'SA SCORE': 'Quality_Score',
             'P1.Adj': 'P1',
@@ -283,9 +293,7 @@ def load_bloque1():
             'P5.Val': 'P5',
             'P6.Adj': 'P6'
         })
-
         return df
-
     except Exception as e:
         st.error(f"Error loading Bloque 1: {str(e)}")
         return pd.DataFrame()
@@ -3102,7 +3110,7 @@ def display_holdings_tab():
             df['5D_Trend'] = df['Ticker'].map(lambda t: live_prices.get(t, {}).get('sparkline', []) if isinstance(t, str) else [])
 
     # ── FILTERS ──────────────────────────────────────────────────
-    filter_row1_c1, filter_row1_c2, filter_row1_c3 = st.columns([2, 2, 1])
+    filter_row1_c1, filter_row1_c2, filter_row1_c3, filter_row1_c4 = st.columns([2, 2, 1, 1])
     with filter_row1_c1:
         sectors = ['All'] + sorted(df['GICS Sector'].dropna().unique().tolist()) if 'GICS Sector' in df.columns else ['All']
         selected_sector = st.selectbox("Sector", sectors, key="holdings_sector")
@@ -3114,6 +3122,11 @@ def display_holdings_tab():
             selected_signal = 'All'
     with filter_row1_c3:
         search_ticker = st.text_input("Search", placeholder="Ticker...", key="holdings_search")
+    with filter_row1_c4:
+        st.write("")
+        st.write("")
+        marango_only = st.checkbox("Marango only", value=False, key="holdings_marango",
+                                   help="Show only actual Marango Equity Fund positions")
 
     # Fundamental screener filters (Dexter-inspired — uses Excel data for speed)
     with st.expander("Fundamental Screener", expanded=False):
@@ -3137,6 +3150,8 @@ def display_holdings_tab():
     if search_ticker and 'Ticker' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Ticker'].str.contains(search_ticker.upper(), case=False, na=False) |
                                   filtered_df['Company'].str.contains(search_ticker, case=False, na=False)]
+    if marango_only and 'Marango_Holding' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['Marango_Holding'] == True]
 
     # Fundamental screener filters
     if min_quality > 0 and 'Quality_Score' in filtered_df.columns:
@@ -3152,6 +3167,7 @@ def display_holdings_tab():
     holdings_cols = ['Company', 'GICS Sector', 'Quality_Score', 'SIGNAL', 'P1', 'P2', 'P3', 'P4', 'P5']
     col_config = {
         "Company": st.column_config.TextColumn("Company", width="medium"),
+        "Marango_Holding": st.column_config.CheckboxColumn("Marango", width="small"),
         "GICS Sector": st.column_config.TextColumn("Sector", width="small"),
         "Quality_Score": st.column_config.ProgressColumn(
             "Quality",
@@ -3171,6 +3187,8 @@ def display_holdings_tab():
     if 'Ticker' in filtered_df.columns:
         holdings_cols.insert(1, 'Ticker')
         col_config["Ticker"] = st.column_config.TextColumn("Ticker", width="small")
+    if 'Marango_Holding' in filtered_df.columns:
+        holdings_cols.insert(2, 'Marango_Holding')
     if 'Live_Price' in filtered_df.columns and filtered_df['Live_Price'].notna().any():
         holdings_cols.insert(2, 'Live_Price')
         holdings_cols.insert(3, 'Daily_Change')
@@ -3625,18 +3643,15 @@ st.divider()
 # TABS
 # ============================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "MARKETS",
     "SCORES",
     "REGIME",
     "MOMENTUM",
     "BRIDGE",
     "HOLDINGS",
-    "VALUATION",
-    "ATTRIBUTION",
-    "MULTIPLES",
-    "QUALITY",
-    "PEERS"
+    "RESEARCH",
+    "SIGNALS"
 ])
 
 with tab1:
@@ -3682,38 +3697,50 @@ with tab6:
         st.code(traceback.format_exc())
 
 with tab7:
-    try:
-        display_valuation_tab()
-    except Exception as e:
-        st.error(f"Valuation tab error: {str(e)}")
-        st.code(traceback.format_exc())
+    # RESEARCH — single-stock deep dive (sub-tabs)
+    sub1, sub2, sub3, sub4, sub5 = st.tabs([
+        "Valuation (Reverse DCF)",
+        "Return Attribution",
+        "Historical Multiples",
+        "Quality Scores",
+        "Peer Comparison",
+    ])
+    with sub1:
+        try:
+            display_valuation_tab()
+        except Exception as e:
+            st.error(f"Valuation error: {str(e)}")
+            st.code(traceback.format_exc())
+    with sub2:
+        try:
+            display_attribution_tab()
+        except Exception as e:
+            st.error(f"Attribution error: {str(e)}")
+            st.code(traceback.format_exc())
+    with sub3:
+        try:
+            display_multiples_tab()
+        except Exception as e:
+            st.error(f"Multiples error: {str(e)}")
+            st.code(traceback.format_exc())
+    with sub4:
+        try:
+            display_quality_tab()
+        except Exception as e:
+            st.error(f"Quality error: {str(e)}")
+            st.code(traceback.format_exc())
+    with sub5:
+        try:
+            display_peers_tab()
+        except Exception as e:
+            st.error(f"Peers error: {str(e)}")
+            st.code(traceback.format_exc())
 
 with tab8:
     try:
-        display_attribution_tab()
+        display_signals_tab()
     except Exception as e:
-        st.error(f"Attribution tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab9:
-    try:
-        display_multiples_tab()
-    except Exception as e:
-        st.error(f"Multiples tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab10:
-    try:
-        display_quality_tab()
-    except Exception as e:
-        st.error(f"Quality tab error: {str(e)}")
-        st.code(traceback.format_exc())
-
-with tab11:
-    try:
-        display_peers_tab()
-    except Exception as e:
-        st.error(f"Peers tab error: {str(e)}")
+        st.error(f"Signals tab error: {str(e)}")
         st.code(traceback.format_exc())
 
 # Footer
@@ -3721,6 +3748,7 @@ st.divider()
 st.markdown("""
 <div style="text-align: center; color: #9ca3af; font-size: 0.75rem;
             text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 0;">
-    Marango Terminal v4.2 | Quality × Regime × Momentum | Marango Fund
+    Marango Terminal v5.0 | Quality × Regime × Momentum | Marango Fund
 </div>
 """, unsafe_allow_html=True)
+ 
